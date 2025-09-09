@@ -2,9 +2,4 @@ EXPORTS
 InitializeAwsSDK
 CleanupAwsSDK
 GetS3LastError
-UploadFileToS3
-UploadFileToS3WithToken
-UploadFileToS3Simple
-FileExists
-GetS3FileSize
-TestS3Library
+UploadFile
