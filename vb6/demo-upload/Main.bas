@@ -9,8 +9,13 @@ Option Explicit
 ' Project -> Add file -> Add the following files
 ' - JsonConverter.bas
 ' - S3UploadLib.bas
-Private Const S3_BUCKET As String = "hippoclinic"
+' - HippoBackend.bas
+' - FileLib.bas
+
+' S3 configuration constants
+Private Const S3_BUCKET As String = "hippoclinic-staging"
 Private Const S3_REGION As String = "us-west-1"
+
 ' Main function to handle file upload workflow with HippoClinic API
 Sub Main()
     Dim jwtToken As String
@@ -99,7 +104,7 @@ Sub Main()
         uploadSuccess = UploadSingleFile(uploadFilePath, jwtToken, patientId, s3Credentials, dataId)
         If uploadSuccess Then
             uploadDataName = GetFileName(uploadFilePath)
-            totalFileSize = GetS3FileSize(uploadFilePath)
+            totalFileSize = GetLocalFileSize(uploadFilePath)
         End If
     End If
     
@@ -166,7 +171,7 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
         Debug.Print "Processing file " & (uploadedCount + failedCount + 1) & " of " & fileCount
         
         ' 6. Get file size before upload
-        currentFileSize = GetS3FileSize(currentFile)
+        currentFileSize = GetLocalFileSize(currentFile)
         
         ' 7. Upload the current file
         If UploadSingleFile(currentFile, jwtToken, patientId, s3Credentials, dataId) Then
@@ -220,7 +225,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     End If
     
     ' 2. Get file size
-    fileSize = GetS3FileSize(filePath)
+    fileSize = GetLocalFileSize(filePath)
     Debug.Print "File exists, size: " & fileSize & " bytes"
     
     ' 3. Parse S3 credentials

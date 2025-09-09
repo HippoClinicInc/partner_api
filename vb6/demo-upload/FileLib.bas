@@ -5,7 +5,6 @@ Option Explicit
 ' Required references: Microsoft Scripting Runtime (for FileSystemObject)
 
 ' Check if file or folder exists using file attributes
-' Check if file or folder exists using file attributes
 Public Function FileOrFolderExists(ByVal path As String) As Boolean
     On Error GoTo ErrorHandler
     
@@ -58,7 +57,7 @@ Public Function GetFileName(ByVal filePath As String) As String
 End Function
 
 ' Get file size in bytes using FileSystemObject
-Public Function GetS3FileSize(ByVal filePath As String) As Long
+Public Function GetLocalFileSize(ByVal filePath As String) As Long
     Dim fso As Object
     Dim file As Object
     
@@ -70,13 +69,13 @@ Public Function GetS3FileSize(ByVal filePath As String) As Long
     ' 2. Check if file exists
     If Not fso.FileExists(filePath) Then
         Debug.Print "ERROR: File does not exist: " & filePath
-        GetS3FileSize = 0
+        GetLocalFileSize = 0
         Exit Function
     End If
     
     ' 3. Get file object and return size
     Set file = fso.GetFile(filePath)
-    GetS3FileSize = file.Size
+    GetLocalFileSize = file.Size
     
     ' 4. Cleanup objects
     Set file = Nothing
@@ -86,7 +85,7 @@ Public Function GetS3FileSize(ByVal filePath As String) As Long
 ErrorHandler:
     ' 5. Handle errors
     Debug.Print "ERROR: Failed to get file size for " & filePath & " - " & Err.Description
-    GetS3FileSize = 0
+    GetLocalFileSize = 0
     Set file = Nothing
     Set fso = Nothing
 End Function

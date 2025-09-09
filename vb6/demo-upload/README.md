@@ -6,24 +6,39 @@ This folder contains a VB6-based file upload system that integrates with the Hip
 
 ### Core VB6 Modules
 
-#### `demo.bas`
+#### `Main.bas`
 **Main application module** - Contains the complete file upload workflow:
 - **Main()** - Primary workflow function with 11-step process
+
+**Key Functions:**
+- `Main()` - Primary workflow entry point
+- `UploadSingleFile()` - Upload individual files to S3
+- `UploadFolderContents()` - Batch upload entire folders
+
+#### `HippoBackend.bas`
+**HippoClinic API Integration** - Backend API communication module:
 - **Authentication** - Login and JWT token management
 - **Patient Management** - Patient record creation and management
-- **S3 Integration** - AWS S3 credentials retrieval and file upload
 - **API Communication** - HTTP requests to HippoClinic API endpoints
-- **Error Handling** - Comprehensive error management with debug logging
-- **Batch Processing** - Support for single file and folder uploads
+- **Credential Management** - S3 credentials retrieval
 
 **Key Functions:**
 - `LoginAndGetToken()` - Authenticate with HippoClinic API
 - `CreatePatient()` - Create patient records
 - `GetS3Credentials()` - Retrieve AWS S3 temporary credentials
 - `GenerateDataId()` - Generate unique data identifiers
-- `UploadSingleFile()` - Upload individual files to S3
-- `UploadFolderContents()` - Batch upload entire folders
 - `ConfirmUploadRawFile()` - Confirm uploads with API
+
+#### `FileLib.bas`
+**File System Operations** - File and folder management utilities:
+- **File Validation** - File and folder existence checking
+- **Path Processing** - File path validation and processing
+- **System Integration** - Windows file system operations
+
+**Key Functions:**
+- `FileOrFolderExists()` - Check if file or folder exists
+- `GetLocalFileSize()` - Get file size in bytes
+- `IsPathFolder()` - Check if path is a directory
 
 #### `S3UploadLib.bas`
 **AWS S3 Library Interface** - VB6 declarations for S3 operations:
@@ -109,12 +124,14 @@ If you having issue with the DLL files, install the Visual C++ Redistributable R
 
 1. **Open demo.bas with Visual Basic 6.0**
    ```
-   Open demo.bas with Visual Basic 6.0
+   Open Main.bas with Visual Basic 6.0
    ```
 
 2. **Add Required Modules and References**
    ```
    Project → Add File → Add the following .bas files:
+   - HippoBackend.bas
+   - FileLib.bas
    - S3UploadLib.bas  
    - JsonConverter.bas
    ```
@@ -135,12 +152,9 @@ If you having issue with the DLL files, install the Visual C++ Redistributable R
 
 5. **Configure Constants**
    ```
-   Edit demo.bas constants section:
-   - ENV_URL: API endpoint URL
-   - LOGIN_ACCOUNT: Your email
-   - LOGIN_ACCOUNT_PASSWORD: Your password
-   - S3_BUCKET: Target S3 bucket name
-   - S3_REGION: AWS region
+   Edit Main.bas and HippoBackend.bas constants sections:
+   - Main.bas: S3_BUCKET, S3_REGION
+   - HippoBackend.bas: ENV_URL, LOGIN_ACCOUNT, LOGIN_ACCOUNT_PASSWORD
    ```
 
 6. **Run Application**
@@ -150,14 +164,14 @@ If you having issue with the DLL files, install the Visual C++ Redistributable R
 
 ## 🔧 Configuration
 
-### API Configuration
+### API Configuration (HippoBackend.bas)
 ```vb
 Private Const ENV_URL As String = "https://dev.hippoclinic.com"
 Private Const LOGIN_ACCOUNT As String = "your-email@example.com"
 Private Const LOGIN_ACCOUNT_PASSWORD As String = "your-password"
 ```
 
-### S3 Configuration
+### S3 Configuration (Main.bas)
 ```vb
 Private Const S3_BUCKET As String = "hippoclinic"
 Private Const S3_REGION As String = "us-west-1"
@@ -225,12 +239,12 @@ S3UploadLib provides standardized error codes:
 ### Common Issues
 
 1. **DLL Not Found**
-   - Ensure all .dll files are in .\resources\ subfolder
+   - Ensure all .dll files are in the same directory as the .bas files
    - Verify Windows path structure is maintained
    - Check Windows PATH environment variable as fallback
 
 2. **Authentication Failed**
-   - Verify login credentials in demo.bas
+   - Verify login credentials in HippoBackend.bas
    - Check network connectivity
    - Confirm API endpoint URL
 

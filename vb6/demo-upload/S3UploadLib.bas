@@ -17,7 +17,6 @@ Public Const S3_ERROR_UNKNOWN As Long = -8
 ' API Declarations - Note: DLL file must be in the same directory as the program or in system PATH
 Declare Function InitializeAwsSDK Lib "S3UploadLib.dll" () As String
 Declare Sub CleanupAwsSDK Lib "S3UploadLib.dll" ()
-Declare Function GetS3LastError Lib "S3UploadLib.dll" () As String
 
 Declare Function UploadFile Lib "S3UploadLib.dll" ( _
     ByVal accessKey As String, _
