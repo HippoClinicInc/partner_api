@@ -219,7 +219,7 @@ Private Function CreatePatient(ByVal jwtToken As String, ByVal hospitalId As Str
     Set http = CreateObject("WinHttp.WinHttpRequest.5.1")
     
     ' 2. Build patient creation request
-    url = ENV_URL & "/hippo/thirdParty/queryOrCreateNatusPatient"
+    url = ENV_URL & "/hippo/thirdParty/queryOrCreatePatient"
     requestBody = "{""hospitalId"":""" & hospitalId & """,""user"":{""name"":""" & DEFAULT_PATIENT_NAME & """,""roles"":[3],""hospitalId"":""" & hospitalId & """,""mrn"":""" & DEFAULT_MRN & """}}"
     
     On Error GoTo ErrorHandler

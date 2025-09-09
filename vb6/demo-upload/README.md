@@ -253,7 +253,7 @@ S3UploadLib provides standardized error codes:
 
 The system integrates with these HippoClinic API endpoints:
 - `POST /hippo/thirdParty/user/login` - User authentication
-- `POST /hippo/thirdParty/queryOrCreateNatusPatient` - Patient management
+- `POST /hippo/thirdParty/queryOrCreatePatient` - Patient management
 - `POST /hippo/thirdParty/file/getS3Credentials` - S3 credentials
 - `GET /hippo/thirdParty/file/generateUniqueKey` - Data ID generation
 - `POST /hippo/thirdParty/file/confirmUploadRawFile` - Upload confirmation
