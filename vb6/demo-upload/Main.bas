@@ -227,6 +227,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     
     ' 5. Check upload result
     If code = 0 Then
+        Debug.Print "SUCCESS: Upload single file completed - " & filePath
         UploadSingleFile = True
     Else
         Debug.Print "ERROR: Upload failed - " & message
