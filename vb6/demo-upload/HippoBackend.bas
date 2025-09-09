@@ -30,14 +30,12 @@ Public Function LoginAndGetToken(ByRef jwtToken As String, ByRef hospitalId As S
     On Error GoTo ErrorHandler
     
     ' 3. Send login request
-    Debug.Print "Sending login request"
     http.Open "POST", url, False
     http.SetRequestHeader "Content-Type", "application/json"
     http.Send requestBody
     
     ' 4. Process response
     response = http.ResponseText
-    Debug.Print "Login response status: " & http.Status
     
     ' 5. Extract token and hospital ID from JSON response
     On Error GoTo JsonError
@@ -55,7 +53,7 @@ Public Function LoginAndGetToken(ByRef jwtToken As String, ByRef hospitalId As S
     
 JsonError:
     ' 7. Handle JSON parsing errors
-    Debug.Print "ERROR: JSON parsing failed - " & Err.Description
+    Debug.Print "ERROR: JSON parsing failed"
     jwtToken = ""
     hospitalId = ""
     On Error GoTo ErrorHandler
@@ -84,7 +82,6 @@ Public Function CreatePatient(ByVal jwtToken As String, ByVal hospitalId As Stri
     On Error GoTo ErrorHandler
     
     ' 3. Send patient creation request
-    Debug.Print "Creating patient record"
     http.Open "POST", url, False
     http.SetRequestHeader "Authorization", "Bearer " & jwtToken
     http.SetRequestHeader "Content-Type", "application/json"
@@ -92,7 +89,6 @@ Public Function CreatePatient(ByVal jwtToken As String, ByVal hospitalId As Stri
     
     ' 4. Process response
     response = http.ResponseText
-    Debug.Print "Create patient response status: " & http.Status
     
     ' 5. Extract patient ID from JSON response
     On Error GoTo JsonError
@@ -140,7 +136,6 @@ Public Function GetS3Credentials(ByVal jwtToken As String, ByVal patientId As St
     On Error GoTo ErrorHandler
     
     ' 3. Send S3 credentials request
-    Debug.Print "Requesting S3 credentials"
     http.Open "POST", url, False
     http.SetRequestHeader "Authorization", "Bearer " & jwtToken
     http.SetRequestHeader "Content-Type", "application/json"
@@ -148,7 +143,6 @@ Public Function GetS3Credentials(ByVal jwtToken As String, ByVal patientId As St
     
     ' 4. Process response
     response = http.ResponseText
-    Debug.Print "S3 credentials response status: " & http.Status
     
     ' 5. Extract S3 credentials from JSON response
     If response <> "" Then
@@ -212,14 +206,12 @@ Public Function GenerateDataId(ByVal jwtToken As String, ByRef dataId As String)
     On Error GoTo ErrorHandler
     
     ' 3. Send data ID generation request
-    Debug.Print "Generating data ID"
     http.Open "GET", url, False
     http.SetRequestHeader "Authorization", "Bearer " & jwtToken
     http.Send
     
     ' 4. Process response
     response = http.ResponseText
-    Debug.Print "Data ID response status: " & http.Status
     
     ' 5. Extract first key from keys array
     If response <> "" Then
@@ -280,7 +272,6 @@ Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As S
     On Error GoTo ErrorHandler
     
     ' 4. Send HTTP POST request with authentication
-    Debug.Print "Confirming upload with API"
     http.Open "POST", url, False
     http.SetRequestHeader "Authorization", "Bearer " & jwtToken
     http.SetRequestHeader "Content-Type", "application/json"
@@ -288,7 +279,6 @@ Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As S
     
     ' 5. Process response
     response = http.ResponseText
-    Debug.Print "Upload confirmation response status: " & http.Status
     
     ' 6. Check if response indicates success
     If http.Status = 200 And InStr(response, "error") = 0 Then

@@ -14,19 +14,17 @@ Public Function FileOrFolderExists(ByVal path As String) As Boolean
     
     ' 2. Check if it's a directory
     If (attr And vbDirectory) = vbDirectory Then
-        Debug.Print "Directory found: " & path
         FileOrFolderExists = True
         Exit Function
     End If
     
     ' 3. If attributes retrieved successfully, it's a file
-    Debug.Print "File found: " & path
     FileOrFolderExists = True
     Exit Function
     
 ErrorHandler:
     ' 4. Error getting attributes means path doesn't exist
-    Debug.Print "ERROR: Path not found: " & path & " - " & Err.Description
+    Debug.Print "ERROR: Path not found: " & path
     FileOrFolderExists = False
 End Function
 
@@ -44,7 +42,7 @@ Public Function IsPathFolder(ByVal path As String) As Boolean
     
 ErrorHandler:
     ' 3. Handle errors
-    Debug.Print "ERROR: Path check failed - " & Err.Description
+    Debug.Print "ERROR: Path check failed"
     IsPathFolder = False
 End Function
 

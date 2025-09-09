@@ -40,12 +40,10 @@ Sub Main()
             uploadFilePath = Mid(uploadFilePath, 2, Len(uploadFilePath) - 2)
         End If
         ' 1.1. Validate file/folder exists
-        Debug.Print "Validating path: " & uploadFilePath
         If Not FileOrFolderExists(uploadFilePath) Then
             Debug.Print "ERROR: Path does not exist: " & uploadFilePath
             Exit Sub
         End If
-        Debug.Print "Path validation successful"
     End If
 
     If uploadFilePath = "" Then
@@ -58,28 +56,24 @@ Sub Main()
         Debug.Print "ERROR: Login failed"
         Exit Sub
     End If
-    Debug.Print "Login successful - Hospital ID: " & hospitalId
     
     ' 3. Create patient record
     If Not CreatePatient(jwtToken, hospitalId, patientId) Then
         Debug.Print "ERROR: Failed to create patient"
         Exit Sub
     End If
-    Debug.Print "Patient created - ID: " & patientId
     
     ' 4. Get S3 credentials for file upload
     If Not GetS3Credentials(jwtToken, patientId, s3Credentials, s3ExpirationTimestamp) Then
         Debug.Print "ERROR: Failed to get S3 credentials"
         Exit Sub
     End If
-    Debug.Print "S3 credentials obtained"
     
     ' 5. Generate unique data ID
     If Not GenerateDataId(jwtToken, dataId) Then
         Debug.Print "ERROR: Failed to generate data ID"
         Exit Sub
     End If
-    Debug.Print "Data ID generated: " & dataId
     
     ' 6. Use the AWS SDK to update file or folder to S3.
     sdkInitResult = InitializeAwsSDK()
@@ -90,17 +84,14 @@ Sub Main()
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
         Exit Sub
     End If
-    Debug.Print "AWS SDK initialized"
 
     ' Determine upload type and execute upload
     isFolder = IsPathFolder(uploadFilePath)
     If isFolder Then
         ' 6.1. Upload folder contents
-        Debug.Print "Processing folder upload"
         uploadSuccess = UploadFolderContents(uploadFilePath, jwtToken, hospitalId, patientId, s3Credentials, s3ExpirationTimestamp, dataId, uploadDataName, totalFileSize)
     Else
         ' 6.2. Upload single file
-        Debug.Print "Processing single file upload"
         uploadSuccess = UploadSingleFile(uploadFilePath, jwtToken, patientId, s3Credentials, dataId)
         If uploadSuccess Then
             uploadDataName = GetFileName(uploadFilePath)
@@ -110,10 +101,8 @@ Sub Main()
     
     ' 7. Call the backend to insert a record for the uploaded file.
     If uploadSuccess Then
-        Debug.Print "Upload successful, confirming with API"
         If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize) Then
-            Debug.Print "Upload confirmation successful"
-            Debug.Print "SUCCESS: Upload completed - Patient: " & patientId & ", Data: " & dataId & ", Size: " & totalFileSize & " bytes"
+            Debug.Print "SUCCESS: Upload completed"
         Else
             Debug.Print "ERROR: Upload confirmation failed"
         End If
@@ -123,8 +112,6 @@ Sub Main()
     
     ' 8. Cleanup resources
     CleanupAwsSDK
-    Debug.Print "AWS SDK cleanup completed"
-    Debug.Print "Workflow completed"
 End Sub
 
 ' Upload all files in a folder to S3 and confirm with API
@@ -151,10 +138,9 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
     ' 3. Get folder object and count files
     Set folder = fso.GetFolder(folderPath)
     fileCount = folder.Files.Count
-    Debug.Print "Found " & fileCount & " files in folder"
     
     If fileCount = 0 Then
-        Debug.Print "WARNING: No files found in folder"
+        Debug.Print "ERROR: No files found in folder"
         UploadFolderContents = False
         Exit Function
     End If
@@ -168,7 +154,6 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
     ' 5. Loop through all files in the folder
     For Each file In folder.Files
         currentFile = file.Path
-        Debug.Print "Processing file " & (uploadedCount + failedCount + 1) & " of " & fileCount
         
         ' 6. Get file size before upload
         currentFileSize = GetLocalFileSize(currentFile)
@@ -177,7 +162,6 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
         If UploadSingleFile(currentFile, jwtToken, patientId, s3Credentials, dataId) Then
             uploadedCount = uploadedCount + 1
             totalFileSize = totalFileSize + currentFileSize
-            Debug.Print "SUCCESS: Uploaded " & currentFile & " (" & currentFileSize & " bytes)"
         Else
             failedCount = failedCount + 1
             Debug.Print "ERROR: Failed to upload " & currentFile
@@ -187,17 +171,14 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
     ' 9. Determine if upload process was successful
     ' If any files failed to upload, the entire process is failed
     If failedCount > 0 Then
-        Debug.Print "ERROR: " & failedCount & " files failed to upload - upload process failed"
+        Debug.Print "ERROR: " & failedCount & " files failed to upload"
         UploadFolderContents = False
     Else
-        Debug.Print "SUCCESS: All " & uploadedCount & " files uploaded successfully"
+        Debug.Print "SUCCESS: All " & uploadedCount & " files uploaded"
         UploadFolderContents = True
     End If
     
-    ' 10. Display summary of upload sdkInitResults
-    Debug.Print "SUMMARY: Total files: " & fileCount & ", Uploaded: " & uploadedCount & ", Failed: " & failedCount & ", Size: " & totalFileSize & " bytes"
-    
-    ' 11. Cleanup file system objects to free memory
+    ' 10. Cleanup file system objects to free memory
     Set file = Nothing
     Set folder = Nothing
     Set fso = Nothing
@@ -226,7 +207,6 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     
     ' 2. Get file size
     fileSize = GetLocalFileSize(filePath)
-    Debug.Print "File exists, size: " & fileSize & " bytes"
     
     ' 3. Parse S3 credentials
     Set credentialsObj = JsonConverter.ParseJson(s3Credentials)
@@ -247,11 +227,9 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     
     ' 5. Check upload result
     If code = 0 Then
-        Debug.Print "SUCCESS: File uploaded to s3://" & S3_BUCKET & "/" & objectKey
         UploadSingleFile = True
     Else
-        Debug.Print "ERROR: Upload failed with code: " & code
-        Debug.Print "Upload error message: " & message
+        Debug.Print "ERROR: Upload failed - " & message
         UploadSingleFile = False
     End If
     
