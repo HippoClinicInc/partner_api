@@ -85,7 +85,7 @@ Sub Main()
     End If
     Debug.Print "Data ID generated: " & dataId
     
-    ' 6. Initialize AWS SDK and determine upload type and execute
+    ' 6. Use the AWS SDK to update file or folder to S3.
     sdkInitResult = InitializeAwsSDK()
     If sdkInitResult <> 0 Then
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
@@ -96,11 +96,11 @@ Sub Main()
     ' Determine upload type and execute upload
     isFolder = IsPathFolder(uploadFilePath)
     If isFolder Then
-        ' 7.1. Upload folder contents
+        ' 6.1. Upload folder contents
         Debug.Print "Processing folder upload"
         uploadSuccess = UploadFolderContents(uploadFilePath, jwtToken, hospitalId, patientId, s3Credentials, s3ExpirationTimestamp, dataId, uploadDataName, totalFileSize)
     Else
-        ' 7.2. Upload single file
+        ' 6.2. Upload single file
         Debug.Print "Processing single file upload"
         uploadSuccess = UploadSingleFile(uploadFilePath, jwtToken, patientId, s3Credentials, dataId)
         If uploadSuccess Then
@@ -109,7 +109,7 @@ Sub Main()
         End If
     End If
     
-    ' 9. Confirm upload with API if upload was successful
+    ' 7. Call the backend to insert a record for the uploaded file.
     If uploadSuccess Then
         Debug.Print "Upload successful, confirming with API"
         If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize) Then
@@ -122,7 +122,7 @@ Sub Main()
         Debug.Print "ERROR: Upload process failed"
     End If
     
-    ' 10. Cleanup resources
+    ' 8. Cleanup resources
     CleanupAwsSDK
     Debug.Print "AWS SDK cleanup completed"
     Debug.Print "Workflow completed"
