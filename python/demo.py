@@ -37,7 +37,7 @@ if __name__ == "__main__":
 
     # Step 2 (optional): If the patient has not been created, you can call the Create Patient API to obtain
     # the patientId for subsequent uploaded files.
-    create_patient_api_path = ENV + "/hippo/thirdParty/queryOrCreateNatusPatient"
+    create_patient_api_path = ENV + "/hippo/thirdParty/queryOrCreatePatient"
     authorization_header = AUTHORIZATION_PREFIX + jwt_token
     payload = json.dumps({
         "hospitalId": hospital_id,
