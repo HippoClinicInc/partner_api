@@ -643,7 +643,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
     
     ' 4. Upload file to S3
-    result = UploadFileToS3WithToken(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
+    result = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
     
     ' 5. Check upload result
     If result = 0 Then
