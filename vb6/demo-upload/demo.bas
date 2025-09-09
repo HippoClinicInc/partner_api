@@ -552,7 +552,7 @@ End Function
 
 ' Upload a single file to S3 using AWS SDK
 Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal dataId As String) As Boolean
-    Dim sdkInitResult As Long
+    Dim result As Long
     Dim fileSize As Long
     Dim accessKey As String
     Dim secretKey As String
@@ -563,8 +563,8 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     On Error GoTo ErrorHandler
     
     ' 1. Check if file exists
-    sdkInitResult = FileExists(filePath)
-    If sdkInitResult <> 1 Then
+    result = FileExists(filePath)
+    If result <> 1 Then
         Debug.Print "ERROR: Local file does not exist: " & filePath
         UploadSingleFile = False
         Exit Function
@@ -582,16 +582,16 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
     
     ' 4. Upload file to S3
-    sdkInitResult = UploadFileToS3WithToken(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
+    result = UploadFileToS3WithToken(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
     
-    ' 5. Check upload sdkInitResult
-    If sdkInitResult = 0 Then
+    ' 5. Check upload result
+    If result = 0 Then
         Debug.Print "SUCCESS: File uploaded to s3://" & S3_BUCKET & "/" & objectKey
         UploadSingleFile = True
     Else
-        Debug.Print "ERROR: Upload failed with code: " & sdkInitResult
+        Debug.Print "ERROR: Upload failed with code: " & result
         Dim errorMsg As String
-        errorMsg = GetErrorMessage(sdkInitResult)
+        errorMsg = GetErrorMessage(result)
         Debug.Print "Error code message: " & errorMsg        
         Dim s3ErrorMsg As String
         s3ErrorMsg = GetS3LastError()
