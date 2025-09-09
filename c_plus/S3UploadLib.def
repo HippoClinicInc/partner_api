@@ -1,0 +1,4 @@
+EXPORTS
+InitializeAwsSDK
+CleanupAwsSDK
+UploadFile
