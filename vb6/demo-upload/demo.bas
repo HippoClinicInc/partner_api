@@ -620,6 +620,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     Dim sessionToken As String
     Dim objectKey As String
     Dim credentialsObj As Object
+    Dim jsonResponse As String
     
     On Error GoTo ErrorHandler
     
@@ -643,14 +644,22 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
     
     ' 4. Upload file to S3
-    result = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
+    jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
+
+    Dim jsonObject As Object
+    Set jsonObject = JsonConverter.ParseJson(jsonResponse)
+    Dim code As Long
+    Dim message As String
+    code = jsonObject("code")
+    message = jsonObject("message")
     
     ' 5. Check upload result
-    If result = 0 Then
+    If code = 0 Then
         Debug.Print "SUCCESS: File uploaded to s3://" & S3_BUCKET & "/" & objectKey
         UploadSingleFile = True
     Else
-        Debug.Print "ERROR: Upload failed with code: " & result
+        Debug.Print "ERROR: Upload failed with code: " & code
+        Debug.Print "Upload error message: " & message
         Dim s3ErrorMsg As String
         s3ErrorMsg = GetS3LastError()
         If Len(s3ErrorMsg) > 0 Then
