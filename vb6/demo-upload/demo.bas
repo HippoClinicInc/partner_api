@@ -660,11 +660,6 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     Else
         Debug.Print "ERROR: Upload failed with code: " & code
         Debug.Print "Upload error message: " & message
-        Dim s3ErrorMsg As String
-        s3ErrorMsg = GetS3LastError()
-        If Len(s3ErrorMsg) > 0 Then
-            Debug.Print "S3 Error details: " & s3ErrorMsg
-        End If
         UploadSingleFile = False
     End If
     
