@@ -216,6 +216,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
 
     ' 4. Upload file to S3
+    Debug.Print "Uploading file to S3 - " & filePath
     jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
 
     Dim jsonObject As Object
