@@ -30,20 +30,23 @@ inline unsigned __int64 _byteswap_uint64(unsigned __int64 x) {
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 
 // Global variables
-static std::string g_lastError = "";
 static bool g_isInitialized = false;
 static Aws::SDKOptions g_options;
 
-// Set error message (internal function)
-void SetLastError(const std::string& error) {
-    g_lastError = error;
+std::string create_response(int code, const std::string& message) {
+    std::ostringstream oss;
+    oss << "{"
+        << "\"code\":" << code << ","
+        << "\"message\":\"" << message << "\""
+        << "}";
+    return oss.str();
 }
 
 // Initialize AWS SDK
-extern "C" S3UPLOAD_API int __stdcall InitializeAwsSDK() {
+extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
     if (g_isInitialized) {
-        SetLastError("AWS SDK already initialized");
-        return 0; // Already initialized, return success
+        static std::string response = create_response(-2, "AWS SDK already initialized");
+        return response.c_str();
     }
 
     try {
@@ -54,38 +57,36 @@ extern "C" S3UPLOAD_API int __stdcall InitializeAwsSDK() {
         Aws::InitAPI(g_options);
         g_isInitialized = true;
 
-        SetLastError("AWS SDK initialized successfully");
-        return 0; // Success
+        static std::string response = create_response(0, "AWS SDK initialized successfully");
+        return response.c_str();
     }
     catch (const std::exception& e) {
-        SetLastError("Failed to initialize AWS SDK: " + std::string(e.what()));
-        return -1; // Failure
+        static std::string response = create_response(-1, "Failed to initialize AWS SDK: " + std::string(e.what()));
+        return response.c_str();
     }
     catch (...) {
-        SetLastError("Failed to initialize AWS SDK: Unknown error");
-        return -1; // Failure
+        static std::string response = create_response(-1, "Failed to initialize AWS SDK: Unknown error");
+        return response.c_str();
     }
 }
 
 // Cleanup AWS SDK
-extern "C" S3UPLOAD_API void __stdcall CleanupAwsSDK() {
+extern "C" S3UPLOAD_API const char* __stdcall CleanupAwsSDK() {
     if (g_isInitialized) {
         try {
             Aws::ShutdownAPI(g_options);
             g_isInitialized = false;
-            SetLastError("AWS SDK cleaned up successfully");
+            static std::string successResponse = create_response(0, "AWS SDK cleaned up successfully");
+            return successResponse.c_str();
         }
         catch (...) {
-            SetLastError("Error during AWS SDK cleanup");
+            static std::string unknownError = create_response(-1, "Error during AWS SDK cleanup");
+            return unknownError.c_str();
         }
     } else {
-        SetLastError("AWS SDK was not initialized");
+        static std::string notInitialized = create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK was not initialized");
+        return notInitialized.c_str();
     }
-}
-
-// Get last error message
-extern "C" S3UPLOAD_API const char* __stdcall GetS3LastError() {
-    return g_lastError.c_str();
 }
 
 // Check if file exists
@@ -108,7 +109,7 @@ extern "C" S3UPLOAD_API long __stdcall GetS3FileSize(const char* filePath) {
 }
 
 // S3 upload implementation with Session Token support
-extern "C" S3UPLOAD_API int __stdcall UploadFile(
+extern "C" S3UPLOAD_API const char* __stdcall UploadFile(
     const char* accessKey,
     const char* secretKey,
     const char* sessionToken,
@@ -117,28 +118,30 @@ extern "C" S3UPLOAD_API int __stdcall UploadFile(
     const char* objectKey,
     const char* localFilePath
 ) {
+     static std::string response;
+
     // Parameter validation
-    if (!accessKey || !secretKey || !region || !bucketName || !objectKey || !localFilePath) {
-        SetLastError("Invalid parameters: one or more required parameters are null");
-        return S3_ERROR_INVALID_PARAMS;
+     if (!accessKey || !secretKey || !region || !bucketName || !objectKey || !localFilePath) {
+        response = create_response(S3_ERROR_INVALID_PARAMS, "Invalid parameters: one or more required parameters are null");
+        return response.c_str();
     }
 
     if (!g_isInitialized) {
-        SetLastError("AWS SDK not initialized. Call InitializeAwsSDK() first");
-        return S3_ERROR_NOT_INITIALIZED;
+        response = create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK not initialized. Call InitializeAwsSDK() first");
+        return response.c_str();
     }
 
     // Check if file exists
     if (!FileExists(localFilePath)) {
-        SetLastError("Local file does not exist: " + std::string(localFilePath));
-        return S3_ERROR_FILE_NOT_EXISTS;
+        response = create_response(S3_ERROR_FILE_NOT_EXISTS, "Local file does not exist: " + std::string(localFilePath));
+        return response.c_str();
     }
 
     // Get file size
     long fileSize = GetS3FileSize(localFilePath);
     if (fileSize < 0) {
-        SetLastError("Cannot read file size: " + std::string(localFilePath));
-        return S3_ERROR_FILE_READ_ERROR;
+        response = create_response(S3_ERROR_FILE_READ_ERROR, "Cannot read file size: " + std::string(localFilePath));
+        return response.c_str();
     }
 
     try {
@@ -194,8 +197,8 @@ extern "C" S3UPLOAD_API int __stdcall UploadFile(
 
         if (!inputData->is_open()) {
             AWS_LOGSTREAM_ERROR("S3Upload", "Failed to open file: " << localFilePath);
-            SetLastError("Cannot open file for reading: " + std::string(localFilePath));
-            return S3_ERROR_FILE_OPEN_ERROR;
+            response = create_response(S3_ERROR_FILE_OPEN_ERROR, "Cannot open file for reading: " + std::string(localFilePath));
+            return response.c_str();
         }
 
         AWS_LOGSTREAM_INFO("S3Upload", "File opened successfully, setting request body...");
@@ -223,8 +226,8 @@ extern "C" S3UPLOAD_API int __stdcall UploadFile(
             }
 
             AWS_LOGSTREAM_INFO("S3Upload", "Upload SUCCESS: " << oss.str());
-            SetLastError(oss.str());
-            return S3_SUCCESS;
+            response = create_response(S3_SUCCESS, oss.str());
+            return response.c_str();
         } else {
             auto error = outcome.GetError();
             std::ostringstream oss;
@@ -233,18 +236,18 @@ extern "C" S3UPLOAD_API int __stdcall UploadFile(
 
             AWS_LOGSTREAM_ERROR("S3Upload", "Upload FAILED: " << oss.str());
             AWS_LOGSTREAM_ERROR("S3Upload", "Error type: " << error.GetExceptionName());
-            SetLastError(oss.str());
-            return S3_ERROR_S3_UPLOAD_FAILED;
+            response = create_response(S3_ERROR_S3_UPLOAD_FAILED, oss.str());
+            return response.c_str();
         }
 
     } catch (const std::exception& e) {
         AWS_LOGSTREAM_ERROR("S3Upload", "Exception caught in UploadFileToS3WithToken: " << e.what());
-        SetLastError("Upload failed with exception: " + std::string(e.what()));
-        return S3_ERROR_EXCEPTION;
+      response = create_response(S3_ERROR_EXCEPTION, "Upload failed with exception: " + std::string(e.what()));
+        return response.c_str();
     } catch (...) {
         AWS_LOGSTREAM_ERROR("S3Upload", "Unknown exception caught in UploadFileToS3WithToken");
-        SetLastError("Upload failed: Unknown error");
-        return S3_ERROR_UNKNOWN;
+        response = create_response(S3_ERROR_UNKNOWN, "Upload failed: Unknown error");
+        return response.c_str();
     }
 }
 
@@ -254,8 +257,6 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        // When DLL is loaded
-        SetLastError("S3UploadLib DLL loaded successfully");
         break;
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

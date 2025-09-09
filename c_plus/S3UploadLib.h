@@ -21,14 +21,10 @@ extern "C" {
     
     // Initialize AWS SDK
     // Return value: 0=success, -1=failure
-    S3UPLOAD_API int __stdcall InitializeAwsSDK();
+    S3UPLOAD_API const char* __stdcall InitializeAwsSDK();
     
     // Cleanup AWS SDK resources
-    S3UPLOAD_API void __stdcall CleanupAwsSDK();
-    
-    // Get last error message
-    // Return value: error message string pointer
-    S3UPLOAD_API const char* __stdcall GetS3LastError();
+    S3UPLOAD_API const char* __stdcall CleanupAwsSDK();
     
     // Upload file to S3 (using temporary credentials/STS Token)
     // Parameters:
@@ -40,7 +36,7 @@ extern "C" {
     //   objectKey: S3 object key (filename)
     //   localFilePath: local file path
     // Return value: 0=success, negative=various error codes
-    S3UPLOAD_API int __stdcall UploadFile(
+    S3UPLOAD_API const char* __stdcall UploadFile(
         const char* accessKey,
         const char* secretKey,
         const char* sessionToken,

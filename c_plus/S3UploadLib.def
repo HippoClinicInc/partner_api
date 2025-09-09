@@ -1,5 +1,4 @@
 EXPORTS
 InitializeAwsSDK
 CleanupAwsSDK
-GetS3LastError
 UploadFile
