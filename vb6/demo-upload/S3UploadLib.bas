@@ -38,6 +38,18 @@ Declare Function UploadFileToS3WithToken Lib "S3UploadLib.dll" ( _
     ByVal localFilePath As String _
 ) As Long
 
+Declare Function UploadFileToS3Simple Lib "S3UploadLib.dll" ( _
+    ByVal jsonConfig As String _
+) As Long
+
+Declare Function FileExists Lib "S3UploadLib.dll" ( _
+    ByVal filePath As String _
+) As Long
+
+Declare Function GetS3FileSize Lib "S3UploadLib.dll" ( _
+    ByVal filePath As String _
+) As Long
+
 Declare Function TestS3Library Lib "S3UploadLib.dll" () As Long
 
 ' Helper function: Get error message
