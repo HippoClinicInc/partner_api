@@ -30,24 +30,6 @@ extern "C" {
     // Return value: error message string pointer
     S3UPLOAD_API const char* __stdcall GetS3LastError();
     
-    // Upload file to S3 (using permanent credentials)
-    // Parameters:
-    //   accessKey: AWS Access Key ID
-    //   secretKey: AWS Secret Access Key  
-    //   region: AWS region (e.g. "us-east-1")
-    //   bucketName: S3 bucket name
-    //   objectKey: S3 object key (filename)
-    //   localFilePath: local file path
-    // Return value: 0=success, negative=various error codes
-    S3UPLOAD_API int __stdcall UploadFileToS3(
-        const char* accessKey,
-        const char* secretKey,
-        const char* region,
-        const char* bucketName,
-        const char* objectKey,
-        const char* localFilePath
-    );
-    
     // Upload file to S3 (using temporary credentials/STS Token)
     // Parameters:
     //   accessKey: AWS Access Key ID
@@ -58,7 +40,7 @@ extern "C" {
     //   objectKey: S3 object key (filename)
     //   localFilePath: local file path
     // Return value: 0=success, negative=various error codes
-    S3UPLOAD_API int __stdcall UploadFileToS3WithToken(
+    S3UPLOAD_API int __stdcall UploadFile(
         const char* accessKey,
         const char* secretKey,
         const char* sessionToken,
@@ -67,37 +49,6 @@ extern "C" {
         const char* objectKey,
         const char* localFilePath
     );
-    
-    // Simplified version: upload file using JSON configuration
-    // Parameters:
-    //   configJson: JSON format configuration string
-    //   localFilePath: local file path
-    // JSON format example:
-    // {
-    //   "accessKey": "your_access_key",
-    //   "secretKey": "your_secret_key", 
-    //   "sessionToken": "optional_session_token",
-    //   "region": "us-east-1",
-    //   "bucket": "your-bucket-name",
-    //   "objectKey": "optional/path/filename.txt"
-    // }
-    // Return value: 0=success, negative=various error codes
-    S3UPLOAD_API int __stdcall UploadFileToS3Simple(
-        const char* configJson,
-        const char* localFilePath
-    );
-    
-    // Helper function: check if file exists
-    // Return value: 1=exists, 0=does not exist
-    S3UPLOAD_API int __stdcall FileExists(const char* filePath);
-    
-    // Helper function: get file size
-    // Return value: file size (bytes), -1=error
-    S3UPLOAD_API long __stdcall GetS3FileSize(const char* filePath);
-    
-    // Test function: verify DLL is working properly
-    // Return value: 100=normal
-    S3UPLOAD_API int __stdcall TestS3Library();
 }
 
 // Error code definitions (for reference)
