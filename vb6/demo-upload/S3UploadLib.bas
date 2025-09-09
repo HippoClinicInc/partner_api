@@ -15,9 +15,16 @@ Public Const S3_ERROR_EXCEPTION As Long = -7
 Public Const S3_ERROR_UNKNOWN As Long = -8
 
 ' API Declarations - Note: DLL file must be in the same directory as the program or in system PATH
+' Return type: JSON string
+' The code is corresponds to the error code constants above
+' { "code": 0, "message": "success" }
 Declare Function InitializeAwsSDK Lib "S3UploadLib.dll" () As String
+
 Declare Sub CleanupAwsSDK Lib "S3UploadLib.dll" ()
 
+' Return type: JSON string
+' The code is corresponds to the error code constants above
+' { "code": 0, "message": "success" }
 Declare Function UploadFile Lib "S3UploadLib.dll" ( _
     ByVal accessKey As String, _
     ByVal secretKey As String, _
