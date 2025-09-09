@@ -7,12 +7,11 @@ Option Explicit
 ' - Microsoft Scripting Runtime (for Dictionary object)
 ' Required files: JsonConverter.bas
 
-Private Const ENV_URL As String = "https://hippoclinic.com"
+Private Const ENV_URL As String = "https://dev.hippoclinic.com"
 ' You need to change to your account when testing this.
 Private Const LOGIN_ACCOUNT As String = "2546566177@qq.com"
 Private Const LOGIN_ACCOUNT_PASSWORD As String = "u3LJ2lXv"
-Private Const S3_BUCKET As String = "hippoclinic-staging"
-Private Const S3_REGION As String = "us-west-1"
+
 ' Module-level constant for default Medical Record Number (MRN)
 ' This hardcoded value is used for demonstration purposes only
 Private Const DEFAULT_MRN As String = "123"

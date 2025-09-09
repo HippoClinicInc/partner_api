@@ -9,7 +9,8 @@ Option Explicit
 ' Project -> Add file -> Add the following files
 ' - JsonConverter.bas
 ' - S3UploadLib.bas
-
+Private Const S3_BUCKET As String = "hippoclinic"
+Private Const S3_REGION As String = "us-west-1"
 ' Main function to handle file upload workflow with HippoClinic API
 Sub Main()
     Dim jwtToken As String
@@ -23,7 +24,7 @@ Sub Main()
     Dim uploadSuccess As Boolean
     Dim uploadDataName As String
     Dim totalFileSize As Long
-    Dim sdkInitResult As Long
+    Dim sdkInitResult As String
     
     ' 1. Get file path from user input and validate existence
     uploadFilePath = InputBox("Please enter the file path to upload:", "File Upload", "")
@@ -77,7 +78,10 @@ Sub Main()
     
     ' 6. Use the AWS SDK to update file or folder to S3.
     sdkInitResult = InitializeAwsSDK()
-    If sdkInitResult <> 0 Then
+    Dim jsonResponse As Object
+    Set jsonResponse = JsonConverter.ParseJson(sdkInitResult)
+
+    If jsonResponse("code") <> 0 Then
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
         Exit Sub
     End If
@@ -225,7 +229,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     secretKey = credentialsObj("secretAccessKey")
     sessionToken = credentialsObj("sessionToken")
     objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
-    
+
     ' 4. Upload file to S3
     jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
 
