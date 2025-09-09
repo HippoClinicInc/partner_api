@@ -1,4 +1,5 @@
 #include "S3UploadLib.h"
+#include <intrin.h>
 #include <string>
 #include <fstream>
 #include <sstream>

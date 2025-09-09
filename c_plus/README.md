@@ -27,8 +27,27 @@ A C++ wrapper library that provides AWS S3 upload functionality with VB6 compati
    - Administrator privileges for installation
 
 ### AWS SDK Dependencies
-- AWS C++ SDK (included in `aws-sdk-cpp/` directory)
-- All required DLL files are pre-compiled and included
+
+The project includes a complete AWS C++ SDK distribution and automated installation scripts:
+
+#####  `download_aws_sdk.bat` - Complete SDK Installation
+
+This script automatically downloads and installs the AWS C++ SDK using vcpkg package manager.
+
+**Usage:**
+```cmd
+cd /d F:\partner_api\c_plus
+download_aws_sdk.bat
+```
+
+**What it does:**
+- Downloads and installs vcpkg package manager from GitHub
+- Bootstraps vcpkg environment
+- Installs AWS C++ SDK with S3 support for x64 Windows
+- Creates proper directory structure (`aws-sdk-cpp/`)
+- Copies all necessary files (DLLs, libraries, headers)
+
+**⚠️ Installation Time:** Approximately **25 minutes** (depending on internet speed and system performance)
 
 ## 📁 Project Structure
 
@@ -41,23 +60,6 @@ c_plus/
 ├── S3UploadLib.def             # DLL export definitions
 ├── S3UploadLib.dll             # Generated DLL (after build)
 ├── S3UploadLib.lib             # Generated import library (after build)
-└── aws-sdk-cpp/                # AWS C++ SDK distribution
-    ├── bin/                    # Release DLL files
-    │   ├── aws-cpp-sdk-core.dll
-    │   ├── aws-cpp-sdk-s3.dll
-    │   ├── aws-c-*.dll         # AWS C libraries
-    │   ├── aws-crt-cpp.dll
-    │   └── zlib1.dll
-    ├── debug/                  # Debug DLL files
-    │   ├── bin/
-    │   └── lib/
-    ├── include/                # Header files
-    │   ├── aws/
-    │   ├── smithy/
-    │   ├── zconf.h
-    │   └── zlib.h
-    ├── lib/                    # Static libraries (Release)
-    └── share/                  # CMake configuration files
 ```
 
 ## 🔧 Build Environment
@@ -87,7 +89,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliar
 
 1. **Open Command Prompt** (cmd.exe, not PowerShell)
    ```cmd
-   cd /d E:\partner_integration\c_plus
+   cd /d F:\partner_api\c_plus
    ```
 
 2. **Execute build script**
@@ -181,15 +183,32 @@ The build process may require these environment variables:
 
 2. **"Cannot open include file 'aws/core/Aws.h'"**
    ```
-   Solution: Verify aws-sdk-cpp/include directory exists and is accessible
+   Solution: Run download_aws_sdk.bat first to install AWS SDK dependencies
    ```
 
 3. **"LNK1104: cannot open file 'aws-cpp-sdk-core.lib'"**
    ```
-   Solution: Check that aws-sdk-cpp/lib directory contains all required .lib files
+   Solution: Run download_aws_sdk.bat first to install AWS SDK libraries
    ```
 
-4. **Character encoding errors**
+4. **"download_aws_sdk.bat failed"**
+   ```
+   Solution: 
+   - Ensure you have internet connection
+   - Run as Administrator
+   - Check if antivirus is blocking the download
+   - Verify Visual Studio 2022 is installed
+   ```
+
+5. **"vcpkg installation takes too long"**
+   ```
+   Solution: This is normal - AWS SDK compilation takes ~25 minutes
+   - Be patient and let it complete
+   - Don't interrupt the process
+   - Ensure stable internet connection
+   ```
+
+6. **Character encoding errors**
    ```
    Solution: Use cmd.exe instead of PowerShell, ensure UTF-8 encoding
    ```
@@ -201,13 +220,19 @@ The build process may require these environment variables:
    where cl.exe
    ```
 
-2. **Verify AWS SDK Files**
+2. **Verify AWS SDK Installation**
    ```cmd
    dir aws-sdk-cpp\lib\*.lib
    dir aws-sdk-cpp\include\aws\core\
+   dir aws-sdk-cpp\bin\*.dll
    ```
 
-3. **Test Generated DLL**
+3. **Check Installation Script Status**
+   ```cmd
+   dir vcpkg\installed\x86-windows\
+   ```
+
+4. **Test Generated DLL**
    ```cmd
    dumpbin /exports S3UploadLib.dll
    ```
