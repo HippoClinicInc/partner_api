@@ -474,6 +474,67 @@ Private Function GetFileName(ByVal filePath As String) As String
     Set fso = Nothing
 End Function
 
+' Get file size in bytes using FileSystemObject
+Private Function GetS3FileSize(ByVal filePath As String) As Long
+    Dim fso As Object
+    Dim file As Object
+    
+    On Error GoTo ErrorHandler
+    
+    ' 1. Initialize file system object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    ' 2. Check if file exists
+    If Not fso.FileExists(filePath) Then
+        Debug.Print "ERROR: File does not exist: " & filePath
+        GetS3FileSize = 0
+        Exit Function
+    End If
+    
+    ' 3. Get file object and return size
+    Set file = fso.GetFile(filePath)
+    GetS3FileSize = file.Size
+    
+    ' 4. Cleanup objects
+    Set file = Nothing
+    Set fso = Nothing
+    Exit Function
+    
+ErrorHandler:
+    ' 5. Handle errors
+    Debug.Print "ERROR: Failed to get file size for " & filePath & " - " & Err.Description
+    GetS3FileSize = 0
+    Set file = Nothing
+    Set fso = Nothing
+End Function
+
+' Check if file exists using FileSystemObject
+Private Function FileExists(ByVal filePath As String) As Long
+    Dim fso As Object
+    
+    On Error GoTo ErrorHandler
+    
+    ' 1. Initialize file system object
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    
+    ' 2. Check if file exists and return result
+    If fso.FileExists(filePath) Then
+        FileExists = 1  ' Return 1 for success
+    Else
+        FileExists = 0  ' Return 0 for file not found
+    End If
+    
+    ' 3. Cleanup object
+    Set fso = Nothing
+    Exit Function
+    
+ErrorHandler:
+    ' 4. Handle errors
+    Debug.Print "ERROR: Failed to check file existence for " & filePath & " - " & Err.Description
+    FileExists = 0
+    Set fso = Nothing
+End Function
+
 ' Upload all files in a folder to S3 and confirm with API
 Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As String, ByVal hospitalId As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal s3ExpirationTimestamp As String, ByVal dataId As String, ByRef uploadDataName As String, ByRef totalFileSize As Long) As Boolean
     Dim fso As Object
@@ -590,14 +651,6 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
         UploadSingleFile = True
     Else
         Debug.Print "ERROR: Upload failed with code: " & result
-        Dim errorMsg As String
-        errorMsg = GetErrorMessage(result)
-        Debug.Print "Error code message: " & errorMsg        
-        Dim s3ErrorMsg As String
-        s3ErrorMsg = GetS3LastError()
-        If Len(s3ErrorMsg) > 0 Then
-            Debug.Print "S3 Error details: " & s3ErrorMsg
-        End If
         UploadSingleFile = False
     End If
     
