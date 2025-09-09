@@ -33,7 +33,7 @@ Sub Main()
     Dim uploadSuccess As Boolean
     Dim uploadDataName As String
     Dim totalFileSize As Long
-    Dim result As Long
+    Dim sdkInitResult As Long
     
     ' 1. Get file path from user input and validate existence
     uploadFilePath = InputBox("Please enter the file path to upload:", "File Upload", "")
@@ -86,9 +86,9 @@ Sub Main()
     Debug.Print "Data ID generated: " & dataId
     
     ' 6. Initialize AWS SDK and determine upload type and execute
-    result = InitializeAwsSDK()
-    If result <> 0 Then
-        Debug.Print "ERROR: AWS SDK initialization failed - code: " & result
+    sdkInitResult = InitializeAwsSDK()
+    If sdkInitResult <> 0 Then
+        Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
         Exit Sub
     End If
     Debug.Print "AWS SDK initialized"
@@ -396,7 +396,6 @@ ErrorHandler:
     Set http = Nothing
 End Function
 
-' Note: Old Chilkat-based upload functions removed
 ' Now using custom AWS S3 implementation from AwsS3Client.bas module
 ' The UploadToS3 function is defined in the AwsS3Client module
 
@@ -542,7 +541,7 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
         UploadFolderContents = True
     End If
     
-    ' 10. Display summary of upload results
+    ' 10. Display summary of upload sdkInitResults
     Debug.Print "SUMMARY: Total files: " & fileCount & ", Uploaded: " & uploadedCount & ", Failed: " & failedCount & ", Size: " & totalFileSize & " bytes"
     
     ' 11. Cleanup file system objects to free memory
@@ -553,7 +552,7 @@ End Function
 
 ' Upload a single file to S3 using AWS SDK
 Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal dataId As String) As Boolean
-    Dim result As Long
+    Dim sdkInitResult As Long
     Dim fileSize As Long
     Dim accessKey As String
     Dim secretKey As String
@@ -564,8 +563,8 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     On Error GoTo ErrorHandler
     
     ' 1. Check if file exists
-    result = FileExists(filePath)
-    If result <> 1 Then
+    sdkInitResult = FileExists(filePath)
+    If sdkInitResult <> 1 Then
         Debug.Print "ERROR: Local file does not exist: " & filePath
         UploadSingleFile = False
         Exit Function
@@ -583,16 +582,16 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
     
     ' 4. Upload file to S3
-    result = UploadFileToS3WithToken(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
+    sdkInitResult = UploadFileToS3WithToken(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
     
-    ' 5. Check upload result
-    If result = 0 Then
+    ' 5. Check upload sdkInitResult
+    If sdkInitResult = 0 Then
         Debug.Print "SUCCESS: File uploaded to s3://" & S3_BUCKET & "/" & objectKey
         UploadSingleFile = True
     Else
-        Debug.Print "ERROR: Upload failed with code: " & result
+        Debug.Print "ERROR: Upload failed with code: " & sdkInitResult
         Dim errorMsg As String
-        errorMsg = GetErrorMessage(result)
+        errorMsg = GetErrorMessage(sdkInitResult)
         Debug.Print "Error code message: " & errorMsg        
         Dim s3ErrorMsg As String
         s3ErrorMsg = GetS3LastError()
