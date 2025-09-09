@@ -29,6 +29,11 @@ Sub Main()
     Dim s3ExpirationTimestamp As String
     Dim dataId As String
     Dim uploadFilePath As String
+    Dim isFolder As Boolean
+    Dim uploadSuccess As Boolean
+    Dim uploadDataName As String
+    Dim totalFileSize As Long
+    Dim result As Long
     
     ' 1. Get file path from user input and validate existence
     uploadFilePath = InputBox("Please enter the file path to upload:", "File Upload", "")
@@ -81,7 +86,6 @@ Sub Main()
     Debug.Print "Data ID generated: " & dataId
     
     ' 6. Initialize AWS SDK and determine upload type and execute
-    Dim result As Long
     result = InitializeAwsSDK()
     If result <> 0 Then
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & result
@@ -89,32 +93,36 @@ Sub Main()
     End If
     Debug.Print "AWS SDK initialized"
 
-    Dim isFolder As Boolean
+    ' Determine upload type and execute upload
     isFolder = IsPathFolder(uploadFilePath)
     If isFolder Then
-        ' Upload folder contents
+        ' 7.1. Upload folder contents
         Debug.Print "Processing folder upload"
-        Call UploadFolderContents(uploadFilePath, jwtToken, hospitalId, patientId, s3Credentials, s3ExpirationTimestamp, dataId)
+        uploadSuccess = UploadFolderContents(uploadFilePath, jwtToken, hospitalId, patientId, s3Credentials, s3ExpirationTimestamp, dataId, uploadDataName, totalFileSize)
     Else
+        ' 7.2. Upload single file
         Debug.Print "Processing single file upload"
-        ' Upload single file and confirm
-        If UploadSingleFile(uploadFilePath, jwtToken, patientId, s3Credentials, dataId) Then
-            Debug.Print "File upload successful"
-            
-            Dim fileSize As Long
-            fileSize = GetS3FileSize(uploadFilePath)
-            If ConfirmUploadRawFile(jwtToken, dataId, GetFileName(uploadFilePath), patientId, fileSize) Then
-                Debug.Print "Upload confirmation successful"
-                Debug.Print "SUCCESS: File upload completed - Patient: " & patientId & ", Data: " & dataId & ", Size: " & fileSize & " bytes"
-            Else
-                Debug.Print "ERROR: Upload confirmation failed"
-            End If
-        Else
-            Debug.Print "ERROR: File upload failed"
+        uploadSuccess = UploadSingleFile(uploadFilePath, jwtToken, patientId, s3Credentials, dataId)
+        If uploadSuccess Then
+            uploadDataName = GetFileName(uploadFilePath)
+            totalFileSize = GetS3FileSize(uploadFilePath)
         End If
     End If
     
-    ' 7. Cleanup resources
+    ' 9. Confirm upload with API if upload was successful
+    If uploadSuccess Then
+        Debug.Print "Upload successful, confirming with API"
+        If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize) Then
+            Debug.Print "Upload confirmation successful"
+            Debug.Print "SUCCESS: Upload completed - Patient: " & patientId & ", Data: " & dataId & ", Size: " & totalFileSize & " bytes"
+        Else
+            Debug.Print "ERROR: Upload confirmation failed"
+        End If
+    Else
+        Debug.Print "ERROR: Upload process failed"
+    End If
+    
+    ' 10. Cleanup resources
     CleanupAwsSDK
     Debug.Print "AWS SDK cleanup completed"
     Debug.Print "Workflow completed"
@@ -468,7 +476,7 @@ Private Function GetFileName(ByVal filePath As String) As String
 End Function
 
 ' Upload all files in a folder to S3 and confirm with API
-Private Sub UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As String, ByVal hospitalId As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal s3ExpirationTimestamp As String, ByVal dataId As String)
+Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As String, ByVal hospitalId As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal s3ExpirationTimestamp As String, ByVal dataId As String, ByRef uploadDataName As String, ByRef totalFileSize As Long) As Boolean
     Dim fso As Object
     Dim folder As Object
     Dim file As Object
@@ -476,17 +484,16 @@ Private Sub UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As S
     Dim uploadedCount As Integer
     Dim failedCount As Integer
     Dim currentFile As String
-    Dim result As Long
-    Dim totalFileSize As Long
     Dim currentFileSize As Long
     
-    ' 1. Initialize file system object
+    ' 1. Initialize file system object for folder operations
     Set fso = CreateObject("Scripting.FileSystemObject")
     
-    ' 2. Validate folder exists
+    ' 2. Validate that the specified folder path exists
     If Not fso.FolderExists(folderPath) Then
         Debug.Print "ERROR: Folder does not exist: " & folderPath
-        Exit Sub
+        UploadFolderContents = False
+        Exit Function
     End If
     
     ' 3. Get folder object and count files
@@ -496,13 +503,15 @@ Private Sub UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As S
     
     If fileCount = 0 Then
         Debug.Print "WARNING: No files found in folder"
-        Exit Sub
+        UploadFolderContents = False
+        Exit Function
     End If
     
     ' 4. Initialize counters and size tracking
     uploadedCount = 0
     failedCount = 0
     totalFileSize = 0
+    uploadDataName = fso.GetFolder(folderPath).Name
     
     ' 5. Loop through all files in the folder
     For Each file In folder.Files
@@ -523,27 +532,24 @@ Private Sub UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As S
         End If
     Next file
     
-    ' 8. Confirm upload with API
-    Dim uploadDataName As String
-    uploadDataName = fso.GetFolder(folderPath).Name
-    If uploadedCount > 0 Then
-        Debug.Print "Confirming folder upload with API"
-        Debug.Print "Uploaded files: " & uploadedCount & ", Total size: " & totalFileSize & " bytes"
-        If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize) Then
-            Debug.Print "SUCCESS: Folder upload confirmation successful"
-        Else
-            Debug.Print "ERROR: Folder upload confirmation failed"
-        End If
+    ' 9. Determine if upload process was successful
+    ' If any files failed to upload, the entire process is failed
+    If failedCount > 0 Then
+        Debug.Print "ERROR: " & failedCount & " files failed to upload - upload process failed"
+        UploadFolderContents = False
+    Else
+        Debug.Print "SUCCESS: All " & uploadedCount & " files uploaded successfully"
+        UploadFolderContents = True
     End If
     
-    ' 9. Show summary
+    ' 10. Display summary of upload results
     Debug.Print "SUMMARY: Total files: " & fileCount & ", Uploaded: " & uploadedCount & ", Failed: " & failedCount & ", Size: " & totalFileSize & " bytes"
     
-    ' 10. Cleanup objects
+    ' 11. Cleanup file system objects to free memory
     Set file = Nothing
     Set folder = Nothing
     Set fso = Nothing
-End Sub
+End Function
 
 ' Upload a single file to S3 using AWS SDK
 Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal dataId As String) As Boolean
@@ -586,9 +592,12 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     Else
         Debug.Print "ERROR: Upload failed with code: " & result
         Dim errorMsg As String
-        errorMsg = GetS3LastError()
-        If Len(errorMsg) > 0 Then
-            Debug.Print "Error details: " & errorMsg
+        errorMsg = GetErrorMessage(result)
+        Debug.Print "Error code message: " & errorMsg        
+        Dim s3ErrorMsg As String
+        s3ErrorMsg = GetS3LastError()
+        If Len(s3ErrorMsg) > 0 Then
+            Debug.Print "S3 Error details: " & s3ErrorMsg
         End If
         UploadSingleFile = False
     End If
