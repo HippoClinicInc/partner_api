@@ -4,15 +4,15 @@ A C++ wrapper library that provides AWS S3 upload functionality with VB6 compati
 
 ## 📋 Table of Contents
 
-- [Prerequisites](#prerequisites)
-- [Project Structure](#project-structure)
-- [Build Environment](#build-environment)
-- [Build Instructions](#build-instructions)
-- [Command Line Notes](#command-line-notes)
-- [Configuration Requirements](#configuration-requirements)
-- [Troubleshooting](#troubleshooting)
-- [API Reference](#api-reference)
-- [Integration](#integration)
+- [Prerequisites](#️-prerequisites)
+- [Project Structure](#-project-structure)
+- [Build Environment](#-build-environment)
+- [Build Instructions](#-build-instructions)
+- [Command Line Notes](#-command-line-notes)
+- [Configuration Requirements](#️-configuration-requirements)
+- [Troubleshooting](#-troubleshooting)
+- [API Reference](#-api-reference)
+- [Integration](#-integration)
 
 ## 🛠️ Prerequisites
 
