@@ -246,7 +246,7 @@ S3UploadLib provides standardized error codes:
    - Do not create a new project in VB6, open Main.bas directly
    - Check Windows PATH environment variable as fallback
 
-   **How to Add DLL Directory to Windows PATH(Not required if you satisfy the first three conditions above)**
+   **How to Add DLL Directory to Windows PATH(Not required if you meet the first three conditions above)**
    
    **Method 1: Using System Properties (GUI)**
    1. Press `Windows + R` to open Run dialog
