@@ -94,6 +94,8 @@ This folder contains a VB6-based file upload system that integrates with the Hip
 If you having issue with the DLL files, install the Visual C++ Redistributable Runtimes 32-bit maybe helpful.
 - [Visual C++ Redistributable Runtimes](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)
 
+You can find the installer in the `cpp_runtime` folder. click the `install_all.bat` to install all the runtimes.
+
 #### Visual Basic 6.0 Installation Steps
 
 1. **Download the Installer**  
@@ -240,8 +242,48 @@ S3UploadLib provides standardized error codes:
 
 1. **DLL Not Found**
    - Ensure all .dll files are in the same directory as the .bas files
-   - Verify Windows path structure is maintained
+   - Ensure C++ runtimes are installed
+   - Do not create a new project in VB6, open Main.bas directly
    - Check Windows PATH environment variable as fallback
+
+   **How to Add DLL Directory to Windows PATH(Not required if you meet the first three conditions above)**
+   
+   **Method 1: Using System Properties (GUI)**
+   1. Press `Windows + R` to open Run dialog
+   2. Type `sysdm.cpl` and press Enter
+   3. Click "Advanced" → "Environment Variables..." button
+   4. In "System variables" section, find and select "Path"
+   5. Click "Edit..." → "New" → Add your DLL directory path
+   6. Click "OK" to save changes
+   
+   **Method 2: Using Command Prompt**
+   ```cmd
+   # Check current PATH
+   echo %PATH%
+   
+   # Add directory temporarily
+   set PATH=%PATH%;C:\path\to\your\dll\files
+   
+   # Add directory permanently
+   setx PATH "%PATH%;C:\path\to\your\dll\files"
+   ```
+   
+   **Method 3: Using PowerShell**
+   ```powershell
+   # Check current PATH
+   $env:PATH
+   
+   # Add directory temporarily
+   $env:PATH += ";C:\path\to\your\dll\files"
+   
+   # Add directory permanently
+   [Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";C:\path\to\your\dll\files", "Machine")
+   ```
+   
+   **Verification:**
+   - Open new Command Prompt
+   - Run `echo %PATH%` to confirm your DLL directory is listed
+   - Test your VB6 application
 
 2. **Authentication Failed**
    - Verify login credentials in HippoBackend.bas
