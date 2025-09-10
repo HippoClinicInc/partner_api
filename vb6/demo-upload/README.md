@@ -251,7 +251,7 @@ S3UploadLib provides standardized error codes:
    **Method 1: Using System Properties (GUI)**
    1. Press `Windows + R` to open Run dialog
    2. Type `sysdm.cpl` and press Enter
-   3. Click "Environment Variables..." button
+   3. Click "Advanced" → "Environment Variables..." button
    4. In "System variables" section, find and select "Path"
    5. Click "Edit..." → "New" → Add your DLL directory path
    6. Click "OK" to save changes
