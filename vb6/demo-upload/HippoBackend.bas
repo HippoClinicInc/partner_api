@@ -251,7 +251,7 @@ End Function
 ' The UploadToS3 function is defined in the AwsS3Client module
 
 ' Confirm file upload with HippoClinic API after successful S3 upload
-Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As String, ByVal uploadDataName As String, ByVal patientId As String, ByVal uploadFileSizeBytes As Long) As Boolean
+Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As String, ByVal uploadDataName As String, ByVal patientId As String, ByVal uploadFileSizeBytes As Long, ByVal s3FileKey As String) As Boolean
     Dim http As Object
     Dim url As String
     Dim requestBody As String
@@ -264,10 +264,7 @@ Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As S
     url = ENV_URL & "/hippo/thirdParty/file/confirmUploadRawFile"
     
     ' 3. Build JSON request body for upload confirmation
-    Dim s3UploadFileKey As String
-    s3UploadFileKey = "patient/" & patientId & "/source_data/" & dataId & "/"
-    
-    requestBody = "{""dataId"":""" & dataId & """,""dataName"":""" & uploadDataName & """,""fileName"":""" & s3UploadFileKey & """,""dataSize"":" & uploadFileSizeBytes & ",""patientId"":""" & patientId & """,""dataType"":20,""uploadDataName"":""" & uploadDataName & """,""isRawDataInternal"":1,""dataVersions"":[0]}"
+    requestBody = "{""dataId"":""" & dataId & """,""dataName"":""" & uploadDataName & """,""fileName"":""" & s3FileKey & """,""dataSize"":" & uploadFileSizeBytes & ",""patientId"":""" & patientId & """,""dataType"":20,""uploadDataName"":""" & uploadDataName & """,""isRawDataInternal"":1,""dataVersions"":[0]}"
     
     On Error GoTo ErrorHandler
     
