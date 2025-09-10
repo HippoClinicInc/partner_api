@@ -3,7 +3,7 @@ echo Building S3UploadLib.dll with Visual Studio 2022
 echo.
 
 REM Set VS 2022 environment
-call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars32.bat"
+call "F:\visualStudio\VC\Auxiliary\Build\vcvars32.bat"
 
 echo Build environment setup complete
 echo.
