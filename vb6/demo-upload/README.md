@@ -242,7 +242,7 @@ S3UploadLib provides standardized error codes:
 
 1. **DLL Not Found**
    - Ensure all .dll files are in the same directory as the .bas files
-   - Ensure C++ runtimes are installed(click the `install_all.bat` in the `cpp_runtime` folder)
+   - Ensure C++ runtimes are installed
    - Do not create a new project in VB6, open Main.bas directly
    - Check Windows PATH environment variable as fallback
 
