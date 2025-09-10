@@ -173,7 +173,7 @@ Private Const LOGIN_ACCOUNT_PASSWORD As String = "your-password"
 
 ### S3 Configuration (Main.bas)
 ```vb
-Private Const S3_BUCKET As String = "hippoclinic"
+Private Const S3_BUCKET As String = "hippoclinic-staging"
 Private Const S3_REGION As String = "us-west-1"
 ```
 
