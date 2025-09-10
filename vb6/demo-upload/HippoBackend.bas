@@ -251,7 +251,7 @@ End Function
 ' The UploadToS3 function is defined in the AwsS3Client module
 
 ' Confirm file upload with HippoClinic API after successful S3 upload
-Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As String, ByVal uploadDataName As String, ByVal patientId As String, ByVal uploadFileSizeBytes As Long) As Boolean
+Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As String, ByVal uploadDataName As String, ByVal patientId As String, ByVal uploadFileSizeBytes As Long, ByVal s3FileKey As String) As Boolean
     Dim http As Object
     Dim url As String
     Dim requestBody As String
@@ -264,10 +264,7 @@ Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As S
     url = ENV_URL & "/hippo/thirdParty/file/confirmUploadRawFile"
     
     ' 3. Build JSON request body for upload confirmation
-    Dim s3UploadFileKey As String
-    s3UploadFileKey = "patient/" & patientId & "/source_data/" & dataId & "/"
-    
-    requestBody = "{""dataId"":""" & dataId & """,""dataName"":""" & uploadDataName & """,""fileName"":""" & s3UploadFileKey & """,""dataSize"":" & uploadFileSizeBytes & ",""patientId"":""" & patientId & """,""dataType"":20,""uploadDataName"":""" & uploadDataName & """,""isRawDataInternal"":1,""dataVersions"":[0]}"
+    requestBody = "{""dataId"":""" & dataId & """,""dataName"":""" & uploadDataName & """,""fileName"":""" & s3FileKey & """,""dataSize"":" & uploadFileSizeBytes & ",""patientId"":""" & patientId & """,""dataType"":20,""uploadDataName"":""" & uploadDataName & """,""isRawDataInternal"":1,""dataVersions"":[0]}"
     
     On Error GoTo ErrorHandler
     
@@ -280,12 +277,31 @@ Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As S
     ' 5. Process response
     response = http.ResponseText
     
-    ' 6. Check if response indicates success
-    If http.Status = 200 And InStr(response, "error") = 0 Then
-        ConfirmUploadRawFile = True
-    Else
+    ' 6. Parse response JSON and validate upload status
+    Dim jsonResponse As Object
+    Set jsonResponse = JsonConverter.ParseJson(response)
+    
+    ' 7. Check HTTP status and response validity
+    If http.Status <> 200 Or jsonResponse Is Nothing Then
         ConfirmUploadRawFile = False
+        Set http = Nothing
+        Exit Function
     End If
+    
+    ' 8. Check for failed uploads
+    If Not IsEmpty(jsonResponse("data")("failedUploads")) Then
+        If IsArray(jsonResponse("data")("failedUploads")) Or TypeName(jsonResponse("data")("failedUploads")) = "Collection" Then
+            If jsonResponse("data")("failedUploads").Count > 0 Then
+                Debug.Print "ERROR: Failed to create record for some files."
+                ConfirmUploadRawFile = False
+                Set http = Nothing
+                Exit Function
+            End If
+        End If
+    End If
+    
+    ' 9. All checks passed - upload successful
+    ConfirmUploadRawFile = True
     
     Set http = Nothing
     Exit Function

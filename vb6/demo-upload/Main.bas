@@ -32,6 +32,7 @@ Sub Main()
     Dim uploadDataName As String
     Dim totalFileSize As Long
     Dim sdkInitResult As String
+    Dim s3FileKey As String
     
     ' 1. Get file path from user input and validate existence
     uploadFilePath = InputBox("Please enter the file path to upload:", "File Upload", "")
@@ -91,19 +92,28 @@ Sub Main()
     isFolder = IsPathFolder(uploadFilePath)
     If isFolder Then
         ' 6.1. Upload folder contents
-        uploadSuccess = UploadFolderContents(uploadFilePath, jwtToken, hospitalId, patientId, s3Credentials, s3ExpirationTimestamp, dataId, uploadDataName, totalFileSize)
+        Dim fso As Object
+        Set fso = CreateObject("Scripting.FileSystemObject")
+        ' Upload data name: abc.ds
+        uploadDataName = fso.GetFolder(uploadFilePath).Name
+        ' S3 file key: patient/patientId/source_data/dataId/abc.ds/single_file_name
+        s3FileKey = "patient/" & patientId & "/source_data/" & dataId & "/" & uploadDataName & "/"
+        uploadSuccess = UploadFolderContents(uploadFilePath, s3Credentials, totalFileSize, s3FileKey)
     Else
         ' 6.2. Upload single file
-        uploadSuccess = UploadSingleFile(uploadFilePath, jwtToken, patientId, s3Credentials, dataId)
+        ' Upload data name: abc.ds
+        uploadDataName = GetFileName(uploadFilePath)
+        ' S3 file key: patient/patientId/source_data/dataId/abc.ds/abc.ds
+        s3FileKey = "patient/" & patientId & "/source_data/" & dataId & "/" & uploadDataName & "/" & uploadDataName
+        uploadSuccess = UploadSingleFile(uploadFilePath, s3Credentials, s3FileKey)
         If uploadSuccess Then
-            uploadDataName = GetFileName(uploadFilePath)
             totalFileSize = GetLocalFileSize(uploadFilePath)
         End If
     End If
     
     ' 7. Call the backend to insert a record for the uploaded file.
     If uploadSuccess Then
-        If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize) Then
+        If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize, s3FileKey) Then
             Debug.Print "SUCCESS: Upload completed"
         Else
             Debug.Print "ERROR: Upload confirmation failed"
@@ -117,7 +127,7 @@ Sub Main()
 End Sub
 
 ' Upload all files in a folder to S3 and confirm with API
-Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken As String, ByVal hospitalId As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal s3ExpirationTimestamp As String, ByVal dataId As String, ByRef uploadDataName As String, ByRef totalFileSize As Long) As Boolean
+Private Function UploadFolderContents(ByVal folderPath As String, ByVal s3Credentials As String, ByRef totalFileSize As Long, ByVal s3FileKey As String) As Boolean
     Dim fso As Object
     Dim folder As Object
     Dim file As Object
@@ -151,7 +161,6 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
     uploadedCount = 0
     failedCount = 0
     totalFileSize = 0
-    uploadDataName = fso.GetFolder(folderPath).Name
     
     ' 5. Loop through all files in the folder
     For Each file In folder.Files
@@ -161,7 +170,10 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
         currentFileSize = GetLocalFileSize(currentFile)
         
         ' 7. Upload the current file
-        If UploadSingleFile(currentFile, jwtToken, patientId, s3Credentials, dataId) Then
+        Dim singleS3FileKey As String
+        ' Single file in folder: patient/patientId/source_data/dataId/abc.ds/abc.xyz
+        singleS3FileKey = s3FileKey & GetFileName(currentFile)
+        If UploadSingleFile(currentFile, s3Credentials, singleS3FileKey) Then
             uploadedCount = uploadedCount + 1
             totalFileSize = totalFileSize + currentFileSize
         Else
@@ -187,13 +199,12 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal jwtToken
 End Function
 
 ' Upload a single file to S3 using AWS SDK
-Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As String, ByVal patientId As String, ByVal s3Credentials As String, ByVal dataId As String) As Boolean
+Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials As String, ByVal s3FileKey As String) As Boolean
     Dim result As Long
     Dim fileSize As Long
     Dim accessKey As String
     Dim secretKey As String
     Dim sessionToken As String
-    Dim objectKey As String
     Dim credentialsObj As Object
     Dim jsonResponse As String
     
@@ -215,11 +226,10 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal jwtToken As St
     accessKey = credentialsObj("accessKeyId")
     secretKey = credentialsObj("secretAccessKey")
     sessionToken = credentialsObj("sessionToken")
-    objectKey = "patient/" & patientId & "/source_data/" & dataId & "/" & GetFileName(filePath)
 
     ' 4. Upload file to S3
     Debug.Print "Uploading file to S3 - " & filePath
-    jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, objectKey, filePath)
+    jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
 
     Dim jsonObject As Object
     Set jsonObject = JsonConverter.ParseJson(jsonResponse)
