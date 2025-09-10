@@ -166,7 +166,7 @@ If you having issue with the DLL files, install the Visual C++ Redistributable R
 
 ### API Configuration (HippoBackend.bas)
 ```vb
-Private Const ENV_URL As String = "https://dev.hippoclinic.com"
+Private Const ENV_URL As String = "https://hippoclinic.com"
 Private Const LOGIN_ACCOUNT As String = "your-email@example.com"
 Private Const LOGIN_ACCOUNT_PASSWORD As String = "your-password"
 ```
