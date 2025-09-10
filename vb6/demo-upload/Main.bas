@@ -92,6 +92,7 @@ Sub Main()
     isFolder = IsPathFolder(uploadFilePath)
     If isFolder Then
         ' 6.1. Upload folder contents
+        Dim fso As Object
         Set fso = CreateObject("Scripting.FileSystemObject")
         ' Upload data name: abc.ds
         uploadDataName = fso.GetFolder(uploadFilePath).Name
