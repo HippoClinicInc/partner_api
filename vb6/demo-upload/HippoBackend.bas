@@ -277,12 +277,31 @@ Public Function ConfirmUploadRawFile(ByVal jwtToken As String, ByVal dataId As S
     ' 5. Process response
     response = http.ResponseText
     
-    ' 6. Check if response indicates success
-    If http.Status = 200 And InStr(response, "error") = 0 Then
-        ConfirmUploadRawFile = True
-    Else
+    ' 6. Parse response JSON and validate upload status
+    Dim jsonResponse As Object
+    Set jsonResponse = JsonConverter.ParseJson(response)
+    
+    ' 7. Check HTTP status and response validity
+    If http.Status <> 200 Or jsonResponse Is Nothing Then
         ConfirmUploadRawFile = False
+        Set http = Nothing
+        Exit Function
     End If
+    
+    ' 8. Check for failed uploads
+    If Not IsEmpty(jsonResponse("data")("failedUploads")) Then
+        If IsArray(jsonResponse("data")("failedUploads")) Or TypeName(jsonResponse("data")("failedUploads")) = "Collection" Then
+            If jsonResponse("data")("failedUploads").Count > 0 Then
+                Debug.Print "ERROR: Failed to create record for some files."
+                ConfirmUploadRawFile = False
+                Set http = Nothing
+                Exit Function
+            End If
+        End If
+    End If
+    
+    ' 9. All checks passed - upload successful
+    ConfirmUploadRawFile = True
     
     Set http = Nothing
     Exit Function
