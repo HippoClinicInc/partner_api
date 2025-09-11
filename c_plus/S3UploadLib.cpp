@@ -70,13 +70,13 @@ extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
         Aws::InitAPI(g_options);
         g_isInitialized = true;
 
-        return create_response(AWS_INITIALIZE_SUCCESS, "AWS SDK initialized successfully");
+        return create_response(S3_SUCCESS, "AWS SDK initialized successfully");
     }
     catch (const std::exception& e) {
-        return create_response(AWS_INITIALIZE_FAILED, std::string("Failed to initialize AWS SDK: ") + e.what());
+        return create_response(S3_ERROR_INVALID_PARAMS, std::string("Failed to initialize AWS SDK: ") + e.what());
     }
     catch (...) {
-        return create_response(AWS_INITIALIZE_FAILED, "Failed to initialize AWS SDK: Unknown error");
+        return create_response(S3_ERROR_INVALID_PARAMS, "Failed to initialize AWS SDK: Unknown error");
     }
 }
 
@@ -86,10 +86,10 @@ extern "C" S3UPLOAD_API const char* __stdcall CleanupAwsSDK() {
         try {
             Aws::ShutdownAPI(g_options);
             g_isInitialized = false;
-            return create_response(AWS_CLEANUP_SUCCESS, "AWS SDK cleaned up successfully");
+            return create_response(S3_SUCCESS, "AWS SDK cleaned up successfully");
         }
         catch (...) {
-            return create_response(AWS_CLEANUP_FAILED, "Error during AWS SDK cleanup");
+            return create_response(S3_ERROR_INVALID_PARAMS, "Error during AWS SDK cleanup");
         }
     } else {
         return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK was not initialized");

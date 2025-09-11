@@ -71,12 +71,6 @@ extern "C" {
     );
 }
 
-#define AWS_INITIALIZE_SUCCESS        0   // success
-#define AWS_INITIALIZE_FAILED        -1   // success
-
-#define AWS_CLEANUP_SUCCESS        0   // success
-#define AWS_CLEANUP_FAILED        -1   // success
-
 // error code definitions
 #define S3_SUCCESS                    0   // success
 #define S3_ERROR_INVALID_PARAMS      -1   // invalid parameters
