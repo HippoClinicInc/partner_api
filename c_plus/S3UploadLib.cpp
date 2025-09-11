@@ -34,8 +34,6 @@ inline unsigned __int64 _byteswap_uint64(unsigned __int64 x) {
 #include <aws/s3/model/UploadPartRequest.h>
 #include <aws/s3/model/CompleteMultipartUploadRequest.h>
 #include <aws/s3/model/AbortMultipartUploadRequest.h>
-#include <aws/s3/model/ListMultipartUploadsRequest.h>
-#include <aws/s3/model/ListPartsRequest.h>
 #include <aws/core/utils/memory/stl/AWSString.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/HashingUtils.h>
@@ -46,7 +44,6 @@ inline unsigned __int64 _byteswap_uint64(unsigned __int64 x) {
 static std::string g_multipartLastError = "";
 static bool g_isInitialized = false;
 static Aws::SDKOptions g_options;
-static std::mutex g_errorMutex;
 
 const char* create_response(int code, const std::string& message) {
     static std::string response;
@@ -73,13 +70,13 @@ extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
         Aws::InitAPI(g_options);
         g_isInitialized = true;
 
-        return create_response(0, "AWS SDK initialized successfully");
+        return create_response(AWS_INITIALIZE_SUCCESS, "AWS SDK initialized successfully");
     }
     catch (const std::exception& e) {
-        return create_response(-1, std::string("Failed to initialize AWS SDK: ") + e.what());
+        return create_response(AWS_INITIALIZE_FAILED, std::string("Failed to initialize AWS SDK: ") + e.what());
     }
     catch (...) {
-        return create_response(-1, "Failed to initialize AWS SDK: Unknown error");
+        return create_response(AWS_INITIALIZE_FAILED, "Failed to initialize AWS SDK: Unknown error");
     }
 }
 
@@ -89,10 +86,10 @@ extern "C" S3UPLOAD_API const char* __stdcall CleanupAwsSDK() {
         try {
             Aws::ShutdownAPI(g_options);
             g_isInitialized = false;
-            return create_response(0, "AWS SDK cleaned up successfully");
+            return create_response(AWS_CLEANUP_SUCCESS, "AWS SDK cleaned up successfully");
         }
         catch (...) {
-            return create_response(-1, "Error during AWS SDK cleanup");
+            return create_response(AWS_CLEANUP_FAILED, "Error during AWS SDK cleanup");
         }
     } else {
         return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK was not initialized");
@@ -127,9 +124,55 @@ extern "C" S3UPLOAD_API void __stdcall InitializeMultipartConfig(MultipartConfig
     config->partSize = S3_DEFAULT_PART_SIZE;
     config->maxRetries = S3_DEFAULT_MAX_RETRIES;
     config->userData = nullptr;
-    config->resumeFilePath = nullptr;
 }
 
+// cancel ongoing multipart upload
+extern "C" S3UPLOAD_API const char* __stdcall cancelMultipartUpload(
+    const char* accessKey,
+    const char* secretKey,
+    const char* sessionToken,
+    const char* region,
+    const char* bucketName,
+    const char* objectKey,
+    const char* uploadId
+) {
+    if (!accessKey || !secretKey || !region || !bucketName || !objectKey || !uploadId) {
+        return create_response(S3_ERROR_INVALID_PARAMS, "Invalid parameters for cancel operation");
+    }
+
+    if (!g_isInitialized) {
+        return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK not initialized");
+    }
+
+    try {
+        Aws::S3::S3ClientConfiguration clientConfig;
+        clientConfig.region = region;
+
+        Aws::Auth::AWSCredentials credentials;
+        if (sessionToken && strlen(sessionToken) > 0) {
+            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey, sessionToken);
+        } else {
+            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey);
+        }
+
+        auto credentialsProvider = Aws::MakeShared<Aws::Auth::SimpleAWSCredentialsProvider>("S3MultipartCancel", credentials);
+        Aws::S3::S3Client s3Client(credentialsProvider, nullptr, clientConfig);
+
+        Aws::S3::Model::AbortMultipartUploadRequest request;
+        request.SetBucket(bucketName);
+        request.SetKey(objectKey);
+        request.SetUploadId(uploadId);
+
+        auto outcome = s3Client.AbortMultipartUpload(request);
+        if (outcome.IsSuccess()) {
+            return create_response(S3_SUCCESS, "Multipart upload cancelled successfully");
+        } else {
+            return create_response(S3_ERROR_S3_UPLOAD_FAILED, std::string("Failed to cancel multipart upload: ") + outcome.GetError().GetMessage());
+        }
+    } catch (const std::exception& e) {
+        return create_response(S3_ERROR_EXCEPTION, std::string("Cancel operation failed: ") + e.what());
+    }
+}
 
 // Multipart upload core implementation
 extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const MultipartConfig* config) {
@@ -139,28 +182,26 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
         return create_response(S3_ERROR_INVALID_PARAMS, "Invalid parameters: one or more required parameters are null");
     }
 
+    // check if AWS SDK is initialized
     if (!g_isInitialized) {
         return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK not initialized. Call InitializeAwsSDK() first");
     }
 
-    // check if file exists
+    // check if local file exists
     if (!FileExistsMultipart(config->localFilePath)) {
         return create_response(S3_ERROR_FILE_NOT_EXISTS, std::string("Local file does not exist: ") + config->localFilePath);
     }
 
-    // get file size
+    // get local file size
     long long fileSize = GetFileSizeMultipart(config->localFilePath);
     if (fileSize < 0) {
         return create_response(S3_ERROR_FILE_READ_ERROR, std::string("Cannot read file size: ") + config->localFilePath);
     }
 
-    // validate part size
-    long partSize = config->partSize;
-    if (partSize < S3_MIN_PART_SIZE) {
-        partSize = S3_DEFAULT_PART_SIZE;
-    }
+    // part size is default part size
+    long partSize = S3_DEFAULT_PART_SIZE;
 
-    // calculate part number
+    // calculate part number, if part number is greater than maximum parts, return error
     int totalParts = static_cast<int>((fileSize + partSize - 1) / partSize);
     if (totalParts > S3_MAX_PARTS) {
         return create_response(S3_ERROR_INVALID_PARAMS, "File too large for multipart upload. Max parts: " + std::to_string(S3_MAX_PARTS));
@@ -173,7 +214,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
         AWS_LOGSTREAM_INFO("S3MultipartUpload", "Part size: " << partSize << " bytes");
         AWS_LOGSTREAM_INFO("S3MultipartUpload", "Total parts: " << totalParts);
 
-        // configure client
+        // 1.configure client
         Aws::S3::S3ClientConfiguration clientConfig;
         clientConfig.region = config->region;
         clientConfig.requestTimeoutMs = 30000;   // 30 seconds timeout (same as successful case)
@@ -185,7 +226,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
 
         clientConfig.httpLibOverride = Aws::Http::TransferLibType::WIN_HTTP_CLIENT;
 
-        // create AWS credentials
+        // 2.create AWS credentials
         Aws::Auth::AWSCredentials credentials;
         if (config->sessionToken && strlen(config->sessionToken) > 0) {
             credentials = Aws::Auth::AWSCredentials(config->accessKey, config->secretKey, config->sessionToken);
@@ -193,11 +234,11 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
             credentials = Aws::Auth::AWSCredentials(config->accessKey, config->secretKey);
         }
 
-        // create credentials provider and S3 client
+        // 3.create credentials provider and S3 client
         auto credentialsProvider = Aws::MakeShared<Aws::Auth::SimpleAWSCredentialsProvider>("S3MultipartUpload", credentials);
         Aws::S3::S3Client s3Client(credentialsProvider, nullptr, clientConfig);
 
-        // create new multipart upload
+        // 4.create new multipart upload
         Aws::S3::Model::CreateMultipartUploadRequest createRequest;
         createRequest.SetBucket(config->bucketName);
         createRequest.SetKey(config->objectKey);
@@ -210,17 +251,17 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
 
         std::string uploadId = createOutcome.GetResult().GetUploadId();
         AWS_LOGSTREAM_INFO("S3MultipartUpload", "Created new multipart upload with ID: " << uploadId);
-
-        // upload all parts sequentially
+  
         std::vector<Aws::S3::Model::CompletedPart> completedParts;
         long long uploadedBytes = 0;
 
-        // create file stream once for all parts
+        // 5.create file stream once for all parts
         std::ifstream file(config->localFilePath, std::ios::binary);
         if (!file.is_open()) {
             return create_response(S3_ERROR_FILE_OPEN_ERROR, std::string("Cannot open file for reading: ") + config->localFilePath);
         }
 
+        // 6.upload all parts sequentially
         for (int partNumber = 1; partNumber <= totalParts; ++partNumber) {
             long long offset = (partNumber - 1) * partSize;
             long long currentPartSize = (static_cast<long long>(partSize) < (fileSize - offset)) ?
@@ -229,12 +270,12 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
             AWS_LOGSTREAM_INFO("S3MultipartUpload", "Uploading part " << partNumber << "/" << totalParts
                               << " (size: " << (long long)currentPartSize << " bytes)");
 
-            // ===== multipart upload logic =====
             bool partSuccess = false;
             std::string etag;
             int retryCount = 0;
             int maxRetries = config->maxRetries > 0 ? config->maxRetries : 3;
 
+            // 6.1. retry upload part if failed, max retries is 3
             while (retryCount <= maxRetries && !partSuccess) {
                 try {
                     // every time retry, read data again, avoid stream status problem
@@ -244,6 +285,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
                     std::vector<char> buffer(currentPartSize);
                     file.read(buffer.data(), currentPartSize);
 
+                    // check if file read error
                     if (!file.good() && !file.eof()) {
                         AWS_LOGSTREAM_ERROR("S3MultipartUpload", "File read error at offset " << offset);
                         return create_response(S3_ERROR_FILE_READ_ERROR, "File read error");
@@ -298,13 +340,15 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
                     }
                 }
             }
-            // ===== end of optimized multipart upload =====
 
+            // 6.2. if part upload failed after all retries, return error
             if (!partSuccess) {
+                // cancel multipart upload
+                cancelMultipartUpload(config->accessKey, config->secretKey, config->sessionToken, config->region, config->bucketName, config->objectKey, uploadId.c_str());
                 return create_response(S3_ERROR_S3_UPLOAD_FAILED, "Part " + std::to_string(partNumber) + " upload failed after all retries");
             }
 
-            // add to completed parts list
+            // 6.3. add to completed parts list
             Aws::S3::Model::CompletedPart completedPart;
             completedPart.SetPartNumber(partNumber);
             completedPart.SetETag(etag);
@@ -312,14 +356,16 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
             uploadedBytes += currentPartSize;
         }
 
+        // 7.close file stream
         file.close();
-        // sort by part number
+
+        // 8.sort by part number
         std::sort(completedParts.begin(), completedParts.end(),
                  [](const Aws::S3::Model::CompletedPart& a, const Aws::S3::Model::CompletedPart& b) {
                      return a.GetPartNumber() < b.GetPartNumber();
                  });
 
-        // complete multipart upload
+        // 9.complete multipart upload
         Aws::S3::Model::CompleteMultipartUploadRequest completeRequest;
         completeRequest.SetBucket(config->bucketName);
         completeRequest.SetKey(config->objectKey);
@@ -334,11 +380,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
             return create_response(S3_ERROR_S3_UPLOAD_FAILED, std::string("Failed to complete multipart upload: ") + completeOutcome.GetError().GetMessage());
         }
 
-        // delete resume file
-        if (config->resumeFilePath) {
-            std::remove(config->resumeFilePath);
-        }
-
+        // 10.return success
         std::ostringstream oss;
         oss << "Successfully uploaded " << config->localFilePath
             << " (" << fileSize << " bytes) to s3://"
@@ -379,186 +421,6 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFile(
     config.maxRetries = retryCount;
 
     return MultipartUploadToS3(&config);
-}
-
-// cancel ongoing multipart upload
-extern "C" S3UPLOAD_API const char* __stdcall CancelMultipartUpload(
-    const char* accessKey,
-    const char* secretKey,
-    const char* sessionToken,
-    const char* region,
-    const char* bucketName,
-    const char* objectKey,
-    const char* uploadId
-) {
-    if (!accessKey || !secretKey || !region || !bucketName || !objectKey || !uploadId) {
-        return create_response(S3_ERROR_INVALID_PARAMS, "Invalid parameters for cancel operation");
-    }
-
-    if (!g_isInitialized) {
-        return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK not initialized");
-    }
-
-    try {
-        Aws::S3::S3ClientConfiguration clientConfig;
-        clientConfig.region = region;
-
-        Aws::Auth::AWSCredentials credentials;
-        if (sessionToken && strlen(sessionToken) > 0) {
-            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey, sessionToken);
-        } else {
-            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey);
-        }
-
-        auto credentialsProvider = Aws::MakeShared<Aws::Auth::SimpleAWSCredentialsProvider>("S3MultipartCancel", credentials);
-        Aws::S3::S3Client s3Client(credentialsProvider, nullptr, clientConfig);
-
-        Aws::S3::Model::AbortMultipartUploadRequest request;
-        request.SetBucket(bucketName);
-        request.SetKey(objectKey);
-        request.SetUploadId(uploadId);
-
-        auto outcome = s3Client.AbortMultipartUpload(request);
-        if (outcome.IsSuccess()) {
-            return create_response(S3_SUCCESS, "Multipart upload cancelled successfully");
-        } else {
-            return create_response(S3_ERROR_S3_UPLOAD_FAILED, std::string("Failed to cancel multipart upload: ") + outcome.GetError().GetMessage());
-        }
-    } catch (const std::exception& e) {
-        return create_response(S3_ERROR_EXCEPTION, std::string("Cancel operation failed: ") + e.what());
-    }
-}
-
-// list incomplete multipart uploads
-extern "C" S3UPLOAD_API const char* __stdcall ListMultipartUploads(
-    const char* accessKey,
-    const char* secretKey,
-    const char* sessionToken,
-    const char* region,
-    const char* bucketName,
-    char* outputBuffer,
-    int bufferSize
-) {
-    if (!accessKey || !secretKey || !region || !bucketName || !outputBuffer || bufferSize <= 0) {
-        return create_response(S3_ERROR_INVALID_PARAMS, "Invalid parameters for list operation");
-    }
-
-    if (!g_isInitialized) {
-        return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK not initialized");
-    }
-
-    try {
-        Aws::S3::S3ClientConfiguration clientConfig;
-        clientConfig.region = region;
-
-        Aws::Auth::AWSCredentials credentials;
-        if (sessionToken && strlen(sessionToken) > 0) {
-            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey, sessionToken);
-        } else {
-            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey);
-        }
-
-        auto credentialsProvider = Aws::MakeShared<Aws::Auth::SimpleAWSCredentialsProvider>("S3MultipartList", credentials);
-        Aws::S3::S3Client s3Client(credentialsProvider, nullptr, clientConfig);
-
-        Aws::S3::Model::ListMultipartUploadsRequest request;
-        request.SetBucket(bucketName);
-
-        auto outcome = s3Client.ListMultipartUploads(request);
-        if (outcome.IsSuccess()) {
-            std::ostringstream json;
-            json << "{\n  \"uploads\": [\n";
-            
-            const auto& uploads = outcome.GetResult().GetUploads();
-            bool first = true;
-            for (const auto& upload : uploads) {
-                if (!first) json << ",\n";
-                json << "    {\n";
-                json << "      \"uploadId\": \"" << upload.GetUploadId() << "\",\n";
-                json << "      \"key\": \"" << upload.GetKey() << "\",\n";
-                json << "      \"initiated\": \"" << upload.GetInitiated().ToLocalTimeString(Aws::Utils::DateFormat::ISO_8601) << "\"\n";
-                json << "    }";
-                first = false;
-            }
-            
-            json << "\n  ]\n}";
-            
-            std::string result = json.str();
-            if (result.length() >= bufferSize) {
-                return create_response(S3_ERROR_BUFFER_TOO_SMALL, "Output buffer too small");
-            }
-            
-            strcpy_s(outputBuffer, bufferSize, result.c_str());
-            return create_response(S3_SUCCESS, "Successfully listed multipart uploads");
-        } else {
-            return create_response(S3_ERROR_S3_UPLOAD_FAILED, std::string("Failed to list multipart uploads: ") + outcome.GetError().GetMessage());
-        }
-    } catch (const std::exception& e) {
-        return create_response(S3_ERROR_EXCEPTION, std::string("List operation failed: ") + e.what());
-    }
-}
-
-// cleanup all incomplete multipart uploads
-extern "C" S3UPLOAD_API const char* __stdcall CleanupMultipartUploads(
-    const char* accessKey,
-    const char* secretKey,
-    const char* sessionToken,
-    const char* region,
-    const char* bucketName,
-    const char* objectKeyPrefix
-) {
-    if (!accessKey || !secretKey || !region || !bucketName) {
-        return create_response(S3_ERROR_INVALID_PARAMS, "Invalid parameters for cleanup operation");
-    }
-
-    if (!g_isInitialized) {
-        return create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK not initialized");
-    }
-
-    try {
-        Aws::S3::S3ClientConfiguration clientConfig;
-        clientConfig.region = region;
-
-        Aws::Auth::AWSCredentials credentials;
-        if (sessionToken && strlen(sessionToken) > 0) {
-            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey, sessionToken);
-        } else {
-            credentials = Aws::Auth::AWSCredentials(accessKey, secretKey);
-        }
-
-        auto credentialsProvider = Aws::MakeShared<Aws::Auth::SimpleAWSCredentialsProvider>("S3MultipartCleanup", credentials);
-        Aws::S3::S3Client s3Client(credentialsProvider, nullptr, clientConfig);
-
-        Aws::S3::Model::ListMultipartUploadsRequest listRequest;
-        listRequest.SetBucket(bucketName);
-        if (objectKeyPrefix) {
-            listRequest.SetPrefix(objectKeyPrefix);
-        }
-
-        auto listOutcome = s3Client.ListMultipartUploads(listRequest);
-        if (!listOutcome.IsSuccess()) {
-            return create_response(S3_ERROR_S3_UPLOAD_FAILED, std::string("Failed to list multipart uploads for cleanup: ") + listOutcome.GetError().GetMessage());
-        }
-
-        const auto& uploads = listOutcome.GetResult().GetUploads();
-        int cleanedCount = 0;
-
-        for (const auto& upload : uploads) {
-            Aws::S3::Model::AbortMultipartUploadRequest abortRequest;
-            abortRequest.SetBucket(bucketName);
-            abortRequest.SetKey(upload.GetKey());
-            abortRequest.SetUploadId(upload.GetUploadId());
-
-            auto abortOutcome = s3Client.AbortMultipartUpload(abortRequest);
-            if (abortOutcome.IsSuccess()) {
-                cleanedCount++;
-            }
-        }
-
-        return create_response(S3_SUCCESS, std::string("Cleaned up ") + std::to_string(cleanedCount) + " multipart uploads");
-    } catch (const std::exception& e) {
-        return create_response(S3_ERROR_EXCEPTION, std::string("Cleanup operation failed: ") + e.what());
-    }
 }
 
 // DLL entry point

@@ -71,6 +71,12 @@ extern "C" {
     );
 }
 
+#define AWS_INITIALIZE_SUCCESS        0   // success
+#define AWS_INITIALIZE_FAILED        -1   // success
+
+#define AWS_CLEANUP_SUCCESS        0   // success
+#define AWS_CLEANUP_FAILED        -1   // success
+
 // error code definitions
 #define S3_SUCCESS                    0   // success
 #define S3_ERROR_INVALID_PARAMS      -1   // invalid parameters
@@ -90,9 +96,7 @@ extern "C" {
 
 
 // constant definitions
-#define S3_MIN_PART_SIZE             (5 * 1024 * 1024)    // 5MB - S3 minimum part size
 #define S3_DEFAULT_PART_SIZE         (20 * 1024 * 1024)    // 20MB - S3 default part size
-#define S3_MAX_PART_SIZE             (5LL * 1024 * 1024 * 1024) // 5GB - S3 maximum part size
 #define S3_MAX_PARTS                 10000                // S3 maximum parts
 #define S3_DEFAULT_MAX_RETRIES       3                    // S3 default maximum retries
 
