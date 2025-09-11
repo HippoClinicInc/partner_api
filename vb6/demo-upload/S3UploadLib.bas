@@ -32,5 +32,6 @@ Declare Function UploadFile Lib "S3UploadLib.dll" ( _
     ByVal region As String, _
     ByVal bucketName As String, _
     ByVal objectKey As String, _
-    ByVal localFilePath As String _
+    ByVal localFilePath As String, _
+    ByVal retryCount As Long _
 ) As String

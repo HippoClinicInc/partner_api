@@ -7,6 +7,7 @@
 #include <map>
 #include <algorithm>
 #include <chrono>
+#include <thread>
 
 // MinGW compatibility fix: define missing byte order conversion functions
 #ifdef __MINGW32__
@@ -46,7 +47,6 @@ static std::string g_multipartLastError = "";
 static bool g_isInitialized = false;
 static Aws::SDKOptions g_options;
 static std::mutex g_errorMutex;
-
 
 const char* create_response(int code, const std::string& message) {
     static std::string response;
@@ -176,8 +176,14 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
         // configure client
         Aws::S3::S3ClientConfiguration clientConfig;
         clientConfig.region = config->region;
-        clientConfig.requestTimeoutMs = 300000;  // 5 minutes timeout for large parts
-        clientConfig.connectTimeoutMs = 10000;   // 10 seconds connect timeout
+        clientConfig.requestTimeoutMs = 30000;   // 30 seconds timeout (same as successful case)
+        clientConfig.connectTimeoutMs = 10000;   // 10 seconds connect timeout (same as successful case)
+        clientConfig.maxConnections = 25;        // 25 connections (same as successful case)
+
+        clientConfig.enableTcpKeepAlive = true;  // Enable TCP keep-alive
+        clientConfig.tcpKeepAliveIntervalMs = 30000; // 30 seconds keep-alive interval
+
+        clientConfig.httpLibOverride = Aws::Http::TransferLibType::WIN_HTTP_CLIENT;
 
         // create AWS credentials
         Aws::Auth::AWSCredentials credentials;
@@ -209,43 +215,62 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
         std::vector<Aws::S3::Model::CompletedPart> completedParts;
         long long uploadedBytes = 0;
 
+        // create file stream once for all parts
+        std::ifstream file(config->localFilePath, std::ios::binary);
+        if (!file.is_open()) {
+            return create_response(S3_ERROR_FILE_OPEN_ERROR, std::string("Cannot open file for reading: ") + config->localFilePath);
+        }
+
         for (int partNumber = 1; partNumber <= totalParts; ++partNumber) {
             long long offset = (partNumber - 1) * partSize;
-            long long currentPartSize = (static_cast<long long>(partSize) < (fileSize - offset)) ? 
+            long long currentPartSize = (static_cast<long long>(partSize) < (fileSize - offset)) ?
                                        static_cast<long long>(partSize) : (fileSize - offset);
 
-            AWS_LOGSTREAM_INFO("S3MultipartUpload", "Uploading part " << partNumber << "/" << totalParts);
+            AWS_LOGSTREAM_INFO("S3MultipartUpload", "Uploading part " << partNumber << "/" << totalParts
+                              << " (size: " << (long long)currentPartSize << " bytes)");
 
-            // upload single part (with retry)
+            // ===== multipart upload logic =====
             bool partSuccess = false;
             std::string etag;
             int retryCount = 0;
-            int maxRetries = config->maxRetries > 0 ? config->maxRetries : S3_DEFAULT_MAX_RETRIES;
+            int maxRetries = config->maxRetries > 0 ? config->maxRetries : 3;
 
             while (retryCount <= maxRetries && !partSuccess) {
                 try {
+                    // every time retry, read data again, avoid stream status problem
+                    file.seekg(offset);
+
+                    // read data to memory buffer
+                    std::vector<char> buffer(currentPartSize);
+                    file.read(buffer.data(), currentPartSize);
+
+                    if (!file.good() && !file.eof()) {
+                        AWS_LOGSTREAM_ERROR("S3MultipartUpload", "File read error at offset " << offset);
+                        return create_response(S3_ERROR_FILE_READ_ERROR, "File read error");
+                    }
+
+                    // create memory stream
+                    auto memoryStream = Aws::MakeShared<Aws::StringStream>("UploadPartStream");
+                    memoryStream->write(buffer.data(), currentPartSize);
+                    memoryStream->seekg(0);
+
                     Aws::S3::Model::UploadPartRequest uploadRequest;
                     uploadRequest.SetBucket(config->bucketName);
                     uploadRequest.SetKey(config->objectKey);
                     uploadRequest.SetUploadId(uploadId);
                     uploadRequest.SetPartNumber(partNumber);
-
-                    // create file stream
-                    auto inputData = Aws::MakeShared<Aws::FStream>("UploadPartInputStream",
-                                                                  config->localFilePath,
-                                                                  std::ios_base::in | std::ios_base::binary);
-                    
-                    if (!inputData->is_open()) {
-                        return create_response(S3_ERROR_FILE_OPEN_ERROR, std::string("Cannot open file for reading: ") + config->localFilePath);
-                    }
-
-                    // seek to specified offset
-                    inputData->seekg(offset);
-                    uploadRequest.SetBody(inputData);
+                    uploadRequest.SetBody(memoryStream);
                     uploadRequest.SetContentLength(currentPartSize);
+
+                    // record upload start time
+                    auto startTime = std::chrono::steady_clock::now();
 
                     // execute upload
                     auto uploadOutcome = s3Client.UploadPart(uploadRequest);
+
+                    auto endTime = std::chrono::steady_clock::now();
+                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+
                     if (uploadOutcome.IsSuccess()) {
                         etag = uploadOutcome.GetResult().GetETag();
                         partSuccess = true;
@@ -262,6 +287,8 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
                     }
                 } catch (const std::exception& e) {
                     retryCount++;
+                    AWS_LOGSTREAM_WARN("S3MultipartUpload", "Part " << partNumber << " upload exception (attempt "
+                                      << retryCount << "/" << (maxRetries + 1) << "): " << e.what());
                     if (retryCount <= maxRetries) {
                         AWS_LOGSTREAM_WARN("S3MultipartUpload", "Part " << partNumber << " upload exception (attempt " << retryCount << "/" << (maxRetries + 1) << "): " << e.what());
                         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -271,6 +298,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
                     }
                 }
             }
+            // ===== end of optimized multipart upload =====
 
             if (!partSuccess) {
                 return create_response(S3_ERROR_S3_UPLOAD_FAILED, "Part " + std::to_string(partNumber) + " upload failed after all retries");
@@ -282,9 +310,9 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
             completedPart.SetETag(etag);
             completedParts.push_back(completedPart);
             uploadedBytes += currentPartSize;
-
         }
 
+        file.close();
         // sort by part number
         std::sort(completedParts.begin(), completedParts.end(),
                  [](const Aws::S3::Model::CompletedPart& a, const Aws::S3::Model::CompletedPart& b) {
@@ -336,7 +364,6 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFile(
     const char* bucketName,
     const char* objectKey,
     const char* localFilePath,
-    const char* resumeFilePath,
     int retryCount
 ) {
     MultipartConfig config;
@@ -349,7 +376,6 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFile(
     config.bucketName = bucketName;
     config.objectKey = objectKey;
     config.localFilePath = localFilePath;
-    config.resumeFilePath = resumeFilePath;
     config.maxRetries = retryCount;
 
     return MultipartUploadToS3(&config);

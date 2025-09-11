@@ -3,7 +3,7 @@ Option Explicit
 ' HippoBackend.bas - HippoClinic backend API functions
 ' This module contains functions that interact with the HippoClinic backend API
 
-Private Const ENV_URL As String = "https://hippoclinic.com"
+Private Const ENV_URL As String = "https://dev.hippoclinic.com"
 ' You need to change to your account when testing this.
 Private Const LOGIN_ACCOUNT As String = "2546566177@qq.com"
 Private Const LOGIN_ACCOUNT_PASSWORD As String = "u3LJ2lXv"

@@ -48,11 +48,13 @@ extern "C" {
     // Return value: JSON response string
     S3UPLOAD_API const char* __stdcall CleanupAwsSDK();
     
-    // Multipart upload file to S3 (full feature version)
-    // Parameters: config - Multipart configuration structure pointer
-    // Return value: JSON response string
-    S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const MultipartConfig* config);
+    // File operations
+    S3UPLOAD_API int __stdcall FileExistsMultipart(const char* filePath);
+    S3UPLOAD_API long long __stdcall GetFileSizeMultipart(const char* filePath);
     
+    // Configuration
+    S3UPLOAD_API void __stdcall InitializeMultipartConfig(MultipartConfig* config);
+
     // Simplified version: Multipart upload file to S3 (basic parameters)
     // Parameters:
     //   accessKey: AWS Access Key ID
@@ -62,10 +64,9 @@ extern "C" {
     //   bucketName: S3 bucket name
     //   objectKey: S3 object key (filename)
     //   localFilePath: local file path
-    //   resumeFilePath: resume file path (deprecated, can be NULL)
     //   retryCount: maximum retry count per part
     // Return value: JSON response string
-    S3UPLOAD_API const char* __stdcall MultipartUploadToS3Simple(
+    S3UPLOAD_API const char* __stdcall UploadFile(
         const char* accessKey,
         const char* secretKey,
         const char* sessionToken,
@@ -73,64 +74,8 @@ extern "C" {
         const char* bucketName,
         const char* objectKey,
         const char* localFilePath,
-        const char* resumeFilePath,
         int retryCount
     );
-    
-    // Cancel ongoing multipart upload
-    // Parameters:
-    //   accessKey, secretKey, sessionToken, region, bucketName, objectKey: AWS configuration
-    //   uploadId: upload ID to cancel
-    // Return value: JSON response string
-    S3UPLOAD_API const char* __stdcall CancelMultipartUpload(
-        const char* accessKey,
-        const char* secretKey,
-        const char* sessionToken,
-        const char* region,
-        const char* bucketName,
-        const char* objectKey,
-        const char* uploadId
-    );
-    
-    // List incomplete multipart uploads
-    // Parameters:
-    //   accessKey, secretKey, sessionToken, region, bucketName: AWS configuration
-    //   outputBuffer: output buffer (JSON format upload list)
-    //   bufferSize: buffer size
-    // Return value: JSON response string
-    S3UPLOAD_API const char* __stdcall ListMultipartUploads(
-        const char* accessKey,
-        const char* secretKey,
-        const char* sessionToken,
-        const char* region,
-        const char* bucketName,
-        char* outputBuffer,
-        int bufferSize
-    );
-    
-    // Cleanup all incomplete multipart uploads
-    // Parameters: AWS configuration and optional object key prefix
-    // Return value: JSON response string
-    S3UPLOAD_API const char* __stdcall CleanupMultipartUploads(
-        const char* accessKey,
-        const char* secretKey,
-        const char* sessionToken,
-        const char* region,
-        const char* bucketName,
-        const char* objectKeyPrefix  // optional, NULL to clean all
-    );
-    
-    // Helper function: create default MultipartConfig structure
-    // Parameters: config - configuration structure pointer to initialize
-    S3UPLOAD_API void __stdcall InitializeMultipartConfig(MultipartConfig* config);
-    
-    // Helper function: check if file exists
-    // Return value: 1=exists, 0=not exists
-    S3UPLOAD_API int __stdcall FileExistsMultipart(const char* filePath);
-    
-    // Helper function: get file size
-    // Return value: file size in bytes, -1=error
-    S3UPLOAD_API long long __stdcall GetFileSizeMultipart(const char* filePath);
 }
 
 // error code definitions
