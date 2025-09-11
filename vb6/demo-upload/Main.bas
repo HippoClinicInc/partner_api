@@ -16,7 +16,7 @@ Option Explicit
 ' S3 configuration constants
 ' For prod running, do not change it here. In our current prod settings,
 ' the prod bucket is called "hippoclinic-staging". We will change it later.
-Private Const S3_BUCKET As String = "hippoclinic"
+Private Const S3_BUCKET As String = "hippoclinic-staging"
 Private Const S3_REGION As String = "us-west-1"
 
 ' Main function to handle file upload workflow with HippoClinic API
@@ -165,7 +165,7 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal s3Creden
     
     ' 5. Loop through all files in the folder
     For Each file In folder.Files
-        currentFile = file.path
+        currentFile = file.Path
         
         ' 6. Get file size before upload
         currentFileSize = GetLocalFileSize(currentFile)
