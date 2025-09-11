@@ -274,14 +274,14 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
                     if (uploadOutcome.IsSuccess()) {
                         etag = uploadOutcome.GetResult().GetETag();
                         partSuccess = true;
-                        AWS_LOGSTREAM_INFO("S3MultipartUpload", "�?Part " << partNumber << " uploaded successfully");
+                        AWS_LOGSTREAM_INFO("S3MultipartUpload", "Part " << partNumber << " uploaded successfully");
                     } else {
                         retryCount++;
                         if (retryCount <= maxRetries) {
                             AWS_LOGSTREAM_WARN("S3MultipartUpload", "Part " << partNumber << " upload failed (attempt " << retryCount << "/" << (maxRetries + 1) << "): " << uploadOutcome.GetError().GetMessage());
                             std::this_thread::sleep_for(std::chrono::seconds(1)); // wait 1 second before retrying
                         } else {
-                            AWS_LOGSTREAM_ERROR("S3MultipartUpload", "�?Part " << partNumber << " upload failed after " << (maxRetries + 1) << " attempts: " << uploadOutcome.GetError().GetMessage());
+                            AWS_LOGSTREAM_ERROR("S3MultipartUpload", "Part " << partNumber << " upload failed after " << (maxRetries + 1) << " attempts: " << uploadOutcome.GetError().GetMessage());
                             return create_response(S3_ERROR_S3_UPLOAD_FAILED, std::string("Part ") + std::to_string(partNumber) + " upload failed: " + uploadOutcome.GetError().GetMessage());
                         }
                     }
@@ -293,7 +293,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
                         AWS_LOGSTREAM_WARN("S3MultipartUpload", "Part " << partNumber << " upload exception (attempt " << retryCount << "/" << (maxRetries + 1) << "): " << e.what());
                         std::this_thread::sleep_for(std::chrono::seconds(1));
                     } else {
-                        AWS_LOGSTREAM_ERROR("S3MultipartUpload", "�?Part " << partNumber << " upload exception after " << (maxRetries + 1) << " attempts: " << e.what());
+                        AWS_LOGSTREAM_ERROR("S3MultipartUpload", "Part " << partNumber << " upload exception after " << (maxRetries + 1) << " attempts: " << e.what());
                         return create_response(S3_ERROR_EXCEPTION, std::string("Part ") + std::to_string(partNumber) + " upload exception: " + e.what());
                     }
                 }
@@ -345,7 +345,7 @@ extern "C" S3UPLOAD_API const char* __stdcall MultipartUploadToS3(const Multipar
             << config->bucketName << "/" << config->objectKey
             << " in " << totalParts << " parts";
 
-        AWS_LOGSTREAM_INFO("S3MultipartUpload", "�?Multipart upload completed successfully");
+        AWS_LOGSTREAM_INFO("S3MultipartUpload", "Multipart upload completed successfully");
         return create_response(S3_SUCCESS, oss.str());
 
     } catch (const std::exception& e) {
