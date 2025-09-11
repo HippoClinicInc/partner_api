@@ -1,5 +1,5 @@
-#ifndef S3MULTIPARTUPLOADLIB_H
-#define S3MULTIPARTUPLOADLIB_H
+#ifndef S3UPLOADLIB_H
+#define S3UPLOADLIB_H
 
 // C++11 standard library headers (must be included before AWS SDK)
 #include <mutex>        // For std::once_flag, std::call_once
@@ -26,13 +26,13 @@ struct MultipartConfig {
     const char* bucketName;
     const char* objectKey;
     const char* localFilePath;
-    
+
     // Multipart configuration
     long partSize;              // part size in bytes, minimum 5MB, default 20MB
     int maxRetries;             // maximum retry count per part, default 3
-    
+
     void* userData;
-    
+
     // resume configuration (deprecated, kept for compatibility)
     const char* resumeFilePath; // resume file path, NULL to disable resume
 };
@@ -48,13 +48,6 @@ extern "C" {
     // Return value: JSON response string
     S3UPLOAD_API const char* __stdcall CleanupAwsSDK();
     
-    // File operations
-    S3UPLOAD_API int __stdcall FileExistsMultipart(const char* filePath);
-    S3UPLOAD_API long long __stdcall GetFileSizeMultipart(const char* filePath);
-    
-    // Configuration
-    S3UPLOAD_API void __stdcall InitializeMultipartConfig(MultipartConfig* config);
-
     // Simplified version: Multipart upload file to S3 (basic parameters)
     // Parameters:
     //   accessKey: AWS Access Key ID
