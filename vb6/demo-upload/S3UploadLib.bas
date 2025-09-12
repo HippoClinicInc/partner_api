@@ -25,7 +25,7 @@ Declare Sub CleanupAwsSDK Lib "S3UploadLib.dll" ()
 ' Return type: JSON string
 ' The code is corresponds to the error code constants above
 ' { "code": 0, "message": "success" }
-Declare Function UploadFile Lib "S3UploadLib.dll" ( _
+Declare Function UploadFileSync Lib "S3UploadLib.dll" ( _
     ByVal accessKey As String, _
     ByVal secretKey As String, _
     ByVal sessionToken As String, _
@@ -37,7 +37,7 @@ Declare Function UploadFile Lib "S3UploadLib.dll" ( _
 
 ' Start asynchronous upload to S3
 ' Return value: JSON string with upload ID on success, error on failure
-Declare Function StartAsyncUpload Lib "S3UploadLib.dll" ( _
+Declare Function UploadFileAsync Lib "S3UploadLib.dll" ( _
     ByVal accessKey As String, _
     ByVal secretKey As String, _
     ByVal sessionToken As String, _
@@ -51,6 +51,6 @@ Declare Function StartAsyncUpload Lib "S3UploadLib.dll" ( _
 ' Parameters:
 '   uploadId: Upload ID returned by StartAsyncUpload
 ' Return value: JSON string with upload status information
-Declare Function GetSimpleUploadStatus Lib "S3UploadLib.dll" ( _
+Declare Function GetAsyncUploadStatus Lib "S3UploadLib.dll" ( _
     ByVal uploadId As String _
 ) As String

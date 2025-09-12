@@ -36,7 +36,7 @@ extern "C" {
     //   objectKey: S3 object key (filename)
     //   localFilePath: local file path
     // Return value: 0=success, negative=various error codes
-    S3UPLOAD_API const char* __stdcall UploadFile(
+    S3UPLOAD_API const char* __stdcall UploadFileSync(
         const char* accessKey,
         const char* secretKey,
         const char* sessionToken,
@@ -46,7 +46,8 @@ extern "C" {
         const char* localFilePath
     );
     
-    // Start asynchronous upload to S3
+    // Start asynchronous upload to S3 with automatic retry mechanism
+    // Features: Automatic retry up to 3 times on failure with exponential backoff
     // Parameters:
     //   accessKey: AWS Access Key ID
     //   secretKey: AWS Secret Access Key
@@ -55,8 +56,8 @@ extern "C" {
     //   bucketName: S3 bucket name
     //   objectKey: S3 object key (filename)
     //   localFilePath: local file path
-    // Return value: Upload ID string on success, NULL on failure
-    S3UPLOAD_API const char* __stdcall StartAsyncUpload(
+    // Return value: JSON string with upload ID on success, error on failure
+    S3UPLOAD_API const char* __stdcall UploadFileAsync(
         const char* accessKey,
         const char* secretKey,
         const char* sessionToken,
@@ -70,7 +71,7 @@ extern "C" {
     // Parameters:
     //   uploadId: Upload ID returned by StartAsyncUpload
     // Return value: JSON string with upload status information
-    S3UPLOAD_API const char* __stdcall GetSimpleUploadStatus(
+    S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(
         const char* uploadId
     );
 }

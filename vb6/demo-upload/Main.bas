@@ -238,7 +238,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     ' 4. Start asynchronous upload to S3
     Debug.Print "Starting async upload to S3 - " & filePath
     Dim startResponse As String
-    startResponse = StartAsyncUpload(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
+    startResponse = UploadFileASync(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
     Debug.Print startResponse
     ' 5. Parse start response and check if upload started successfully
     Dim startObj As Object
@@ -270,7 +270,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     waitTime = 0
     
     Do While waitTime < maxWaitTime
-        statusResponse = GetSimpleUploadStatus(uploadId)
+        statusResponse = GetAsyncUploadStatus(uploadId)
         Debug.Print statusResponse
         Set statusObj = JsonConverter.ParseJson(statusResponse)
         statusCode = statusObj("code")
