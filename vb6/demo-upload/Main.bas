@@ -243,7 +243,6 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     ' 5. Parse start response and check if upload started successfully
     Dim startObj As Object
     Set startObj = JsonConverter.ParseJson(startResponse)
-    Debug.Print "JsonConverter.ParseJso"
     Dim startCode As Long
     Dim uploadId As String
     startCode = startObj("code")
@@ -267,12 +266,12 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     Dim statusCode As Long
     Dim uploadStatus As Long
     
-    maxWaitTime = 300 ' Maximum wait time in seconds (5 minutes)
+    maxWaitTime = 600 ' Maximum wait time in seconds (10 minutes)
     waitTime = 0
     
     Do While waitTime < maxWaitTime
         statusResponse = GetSimpleUploadStatus(uploadId)
-        Debug.Print "GetSimpleUploadStatus1212 " & statusResponse
+        Debug.Print statusResponse
         Set statusObj = JsonConverter.ParseJson(statusResponse)
         statusCode = statusObj("code")
         
@@ -304,8 +303,6 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     ' 7. Check final result
     If isCompleted Then
         Debug.Print "SUCCESS: Upload single file completed - " & filePath
-        ' Wait a bit more to ensure async operations complete
-        Sleep 2000
         UploadSingleFile = True
     ElseIf isError Then
         UploadSingleFile = False
