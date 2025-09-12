@@ -34,3 +34,23 @@ Declare Function UploadFile Lib "S3UploadLib.dll" ( _
     ByVal objectKey As String, _
     ByVal localFilePath As String _
 ) As String
+
+' Start asynchronous upload to S3
+' Return value: JSON string with upload ID on success, error on failure
+Declare Function StartAsyncUpload Lib "S3UploadLib.dll" ( _
+    ByVal accessKey As String, _
+    ByVal secretKey As String, _
+    ByVal sessionToken As String, _
+    ByVal region As String, _
+    ByVal bucketName As String, _
+    ByVal objectKey As String, _
+    ByVal localFilePath As String _
+) As String
+
+' Get simple upload status
+' Parameters:
+'   uploadId: Upload ID returned by StartAsyncUpload
+' Return value: JSON string with upload status information
+Declare Function GetSimpleUploadStatus Lib "S3UploadLib.dll" ( _
+    ByVal uploadId As String _
+) As String

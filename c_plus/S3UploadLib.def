@@ -2,3 +2,7 @@ EXPORTS
 InitializeAwsSDK
 CleanupAwsSDK
 UploadFile
+StartAsyncUpload
+GetSimpleUploadStatus
+CancelSimpleUpload
+CleanupSimpleUpload

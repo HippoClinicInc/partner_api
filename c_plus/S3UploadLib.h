@@ -45,6 +45,34 @@ extern "C" {
         const char* objectKey,
         const char* localFilePath
     );
+    
+    // Start asynchronous upload to S3
+    // Parameters:
+    //   accessKey: AWS Access Key ID
+    //   secretKey: AWS Secret Access Key
+    //   sessionToken: AWS Session Token (STS temporary credentials)
+    //   region: AWS region
+    //   bucketName: S3 bucket name
+    //   objectKey: S3 object key (filename)
+    //   localFilePath: local file path
+    // Return value: Upload ID string on success, NULL on failure
+    S3UPLOAD_API const char* __stdcall StartAsyncUpload(
+        const char* accessKey,
+        const char* secretKey,
+        const char* sessionToken,
+        const char* region,
+        const char* bucketName,
+        const char* objectKey,
+        const char* localFilePath
+    );
+    
+    // Get simple upload status
+    // Parameters:
+    //   uploadId: Upload ID returned by StartAsyncUpload
+    // Return value: JSON string with upload status information
+    S3UPLOAD_API const char* __stdcall GetSimpleUploadStatus(
+        const char* uploadId
+    );
 }
 
 // Error code definitions (for reference)
