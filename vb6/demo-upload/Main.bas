@@ -229,7 +229,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
 
     ' 4. Upload file to S3
     Debug.Print "Uploading file to S3 - " & filePath
-    jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
+    jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath, 3)
 
     Dim jsonObject As Object
     Set jsonObject = JsonConverter.ParseJson(jsonResponse)
