@@ -258,29 +258,29 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFile(
     }
 }
 
-// 简单上传状态枚举
+// simple upload status enum
 enum SimpleUploadStatus {
-    SIMPLE_UPLOAD_PENDING = 0,      // 等待开始
-    SIMPLE_UPLOAD_UPLOADING = 1,    // 上传中
-    SIMPLE_UPLOAD_SUCCESS = 2,      // 成功
-    SIMPLE_UPLOAD_FAILED = 3,       // 失败
-    SIMPLE_UPLOAD_CANCELLED = 4     // 已取消
+    SIMPLE_UPLOAD_PENDING = 0,      // waiting to start
+    SIMPLE_UPLOAD_UPLOADING = 1,    // uploading
+    SIMPLE_UPLOAD_SUCCESS = 2,      // success
+    SIMPLE_UPLOAD_FAILED = 3,       // failed
+    SIMPLE_UPLOAD_CANCELLED = 4     // cancelled
 };
 
-// 简单上传进度信息结构
+// simple upload progress info structure
 struct SimpleUploadProgress {
-    std::string uploadId;           // 上传ID（用作唯一标识）
-    SimpleUploadStatus status;      // 当前状态
-    long long totalSize;            // 总文件大小
-    std::string errorMessage;       // 错误信息
-    std::chrono::steady_clock::time_point startTime; // 开始时间
-    std::chrono::steady_clock::time_point endTime;   // 结束时间
-    std::atomic<bool> shouldCancel; // 取消标志
+    std::string uploadId;           // upload ID (used as unique identifier)
+    SimpleUploadStatus status;      // current status
+    long long totalSize;            // total file size
+    std::string errorMessage;       // error message
+    std::chrono::steady_clock::time_point startTime; // start time
+    std::chrono::steady_clock::time_point endTime;   // end time
+    std::atomic<bool> shouldCancel; // cancel flag
 
     SimpleUploadProgress() : status(SIMPLE_UPLOAD_PENDING), totalSize(0), shouldCancel(false) {}
 };
 
-// 简单上传管理器
+// simple upload manager
 class SimpleUploadManager {
 private:
     std::mutex mutex_;
@@ -390,8 +390,8 @@ void asyncUploadWorker(const std::string& uploadId,
         // configure client
         Aws::S3::S3ClientConfiguration clientConfig;
         clientConfig.region = region;
-        clientConfig.requestTimeoutMs = 30000;  // 30秒超时
-        clientConfig.connectTimeoutMs = 10000;  // 10秒连接超时
+        clientConfig.requestTimeoutMs = 30000;  // 30 seconds timeout
+        clientConfig.connectTimeoutMs = 10000;  // 10 seconds connect timeout
 
         // create AWS credentials
         Aws::Auth::AWSCredentials credentials;
