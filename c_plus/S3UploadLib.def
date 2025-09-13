@@ -1,4 +1,6 @@
 EXPORTS
 InitializeAwsSDK
 CleanupAwsSDK
-UploadFile
+UploadFileSync
+UploadFileAsync
+GetAsyncUploadStatus
