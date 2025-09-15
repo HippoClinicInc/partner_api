@@ -87,7 +87,7 @@ Sub Main()
     Dim jsonResponse As Object
     Set jsonResponse = JsonConverter.ParseJson(sdkInitResult)
 
-    If jsonResponse("code") <> 0 Then
+    If jsonResponse("code") <> 2 Then
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
         Exit Sub
     End If

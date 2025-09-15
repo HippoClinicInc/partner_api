@@ -90,7 +90,7 @@ std::string create_response(int code, const std::string& message) {
 // Initialize AWS SDK
 extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
     if (g_isInitialized) {
-        static std::string response = create_response(-2, "AWS SDK already initialized");
+        static std::string response = create_response(UPLOAD_FAILED, "AWS SDK already initialized");
         return response.c_str();
     }
 
@@ -102,15 +102,15 @@ extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
         Aws::InitAPI(g_options);
         g_isInitialized = true;
 
-        static std::string response = create_response(0, "AWS SDK initialized successfully");
+        static std::string response = create_response(UPLOAD_SUCCESS, "AWS SDK initialized successfully");
         return response.c_str();
     }
     catch (const std::exception& e) {
-        static std::string response = create_response(-1, formatErrorMessage("Failed to initialize AWS SDK", e.what()));
+        static std::string response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to initialize AWS SDK", e.what()));
         return response.c_str();
     }
     catch (...) {
-        static std::string response = create_response(-1, formatErrorMessage("Failed to initialize AWS SDK", "Unknown error"));
+        static std::string response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to initialize AWS SDK", "Unknown error"));
         return response.c_str();
     }
 }
@@ -121,11 +121,11 @@ extern "C" S3UPLOAD_API const char* __stdcall CleanupAwsSDK() {
         try {
             Aws::ShutdownAPI(g_options);
             g_isInitialized = false;
-            static std::string successResponse = create_response(0, "AWS SDK cleaned up successfully");
+            static std::string successResponse = create_response(UPLOAD_SUCCESS, "AWS SDK cleaned up successfully");
             return successResponse.c_str();
         }
         catch (...) {
-            static std::string unknownError = create_response(-1, formatErrorMessage("Error during AWS SDK cleanup"));
+            static std::string unknownError = create_response(UPLOAD_FAILED, formatErrorMessage("Error during AWS SDK cleanup"));
             return unknownError.c_str();
         }
     } else {
