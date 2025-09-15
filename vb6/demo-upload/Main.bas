@@ -1,9 +1,13 @@
+Attribute VB_Name = "Module1"
 Option Explicit
 
 ' Required references:
 ' Project -> References -> Add the following libraries
 ' - Microsoft WinHTTP Services 5.1
 ' - Microsoft Scripting Runtime (for Dictionary object)
+
+' Windows API declarations
+Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 
 ' Required files:
 ' Project -> Add file -> Add the following files
@@ -83,7 +87,7 @@ Sub Main()
     Dim jsonResponse As Object
     Set jsonResponse = JsonConverter.ParseJson(sdkInitResult)
 
-    If jsonResponse("code") <> 0 Then
+    If jsonResponse("code") <> 2 Then
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
         Exit Sub
     End If
@@ -115,6 +119,7 @@ Sub Main()
     If uploadSuccess Then
         If ConfirmUploadRawFile(jwtToken, dataId, uploadDataName, patientId, totalFileSize, s3FileKey) Then
             Debug.Print "SUCCESS: Upload completed"
+            MsgBox "SUCCESS: Upload completed"
         Else
             Debug.Print "ERROR: Upload confirmation failed"
         End If
@@ -123,7 +128,10 @@ Sub Main()
     End If
     
     ' 8. Cleanup resources
+    ' Note: CleanupAwsSDK is called automatically when DLL is unloaded
+    ' Do not call it here as async uploads may still be running
     CleanupAwsSDK
+    Exit Sub
 End Sub
 
 ' Upload all files in a folder to S3 and confirm with API
@@ -164,7 +172,7 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal s3Creden
     
     ' 5. Loop through all files in the folder
     For Each file In folder.Files
-        currentFile = file.Path
+        currentFile = file.path
         
         ' 6. Get file size before upload
         currentFileSize = GetLocalFileSize(currentFile)
@@ -227,30 +235,87 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     secretKey = credentialsObj("secretAccessKey")
     sessionToken = credentialsObj("sessionToken")
 
-    ' 4. Upload file to S3
-    Debug.Print "Uploading file to S3 - " & filePath
-    jsonResponse = UploadFile(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
-
-    Dim jsonObject As Object
-    Set jsonObject = JsonConverter.ParseJson(jsonResponse)
-    Dim code As Long
-    Dim message As String
-    code = jsonObject("code")
-    message = jsonObject("message")
+    ' 4. Start asynchronous upload to S3
+    Debug.Print "Starting async upload to S3 - " & filePath
+    Dim startResponse As String
+    startResponse = UploadFileASync(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
+    Debug.Print startResponse
+    ' 5. Parse start response and check if upload started successfully
+    Dim startObj As Object
+    Set startObj = JsonConverter.ParseJson(startResponse)
+    Dim startCode As Long
+    Dim uploadId As String
+    startCode = startObj("code")
     
-    ' 5. Check upload result
-    If code = 0 Then
+    If startCode <> 2 Then
+        Debug.Print "ERROR: Failed to start async upload - " & startObj("message")
+        UploadSingleFile = False
+        Exit Function
+    End If
+    
+    ' Extract upload ID from the response message
+    uploadId = startObj("message")
+    
+    ' 6. Monitor upload status
+    Dim statusResponse As String
+    Dim statusObj As Object
+    Dim isCompleted As Boolean
+    Dim isError As Boolean
+    Dim maxWaitTime As Long
+    Dim waitTime As Long
+    Dim statusCode As Long
+    Dim uploadStatus As Long
+    
+    maxWaitTime = 600 ' Maximum wait time in seconds (10 minutes)
+    waitTime = 0
+    
+    Do While waitTime < maxWaitTime
+        statusResponse = GetAsyncUploadStatus(uploadId)
+        Debug.Print statusResponse
+        Set statusObj = JsonConverter.ParseJson(statusResponse)
+        statusCode = statusObj("code")
+        
+        If statusCode = 2 Then
+            ' Parse the status from the message field (which contains JSON string)
+            uploadStatus = statusObj("status")
+            
+            If uploadStatus = 2 Then ' SIMPLE_UPLOAD_SUCCESS
+                isCompleted = True
+                Exit Do
+            ElseIf uploadStatus = 3 Then ' SIMPLE_UPLOAD_FAILED
+                isError = True
+                Debug.Print "ERROR: Upload failed - " & statusObj("errorMessage")
+                Exit Do
+            End If
+        Else
+            ' Status check failed
+            isError = True
+            Debug.Print "ERROR: Failed to get upload status - " & statusObj("errorMessage")
+            Exit Do
+        End If
+        
+        ' Wait 1 second before checking again
+        DoEvents
+        Sleep 1000
+        waitTime = waitTime + 1
+    Loop
+    
+    ' 7. Check final result
+    If isCompleted Then
         Debug.Print "SUCCESS: Upload single file completed - " & filePath
         UploadSingleFile = True
+    ElseIf isError Then
+        UploadSingleFile = False
     Else
-        Debug.Print "ERROR: Upload failed - " & message
+        Debug.Print "ERROR: Upload timeout after " & maxWaitTime & " seconds"
         UploadSingleFile = False
     End If
     
     Exit Function
     
 ErrorHandler:
-    ' 6. Handle errors
+    ' 8. Handle errors
     Debug.Print "ERROR: Upload failed - " & Err.Description
     UploadSingleFile = False
 End Function
+
