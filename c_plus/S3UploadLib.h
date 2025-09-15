@@ -76,15 +76,4 @@ extern "C" {
     );
 }
 
-// Error code definitions (for reference)
-#define S3_SUCCESS                  0   // Success
-#define S3_ERROR_INVALID_PARAMS    -1   // Invalid parameters
-#define S3_ERROR_NOT_INITIALIZED   -2   // SDK not initialized
-#define S3_ERROR_FILE_NOT_EXISTS   -3   // File does not exist
-#define S3_ERROR_FILE_READ_ERROR   -4   // File read error
-#define S3_ERROR_FILE_OPEN_ERROR   -5   // File open error
-#define S3_ERROR_S3_UPLOAD_FAILED  -6   // S3 upload failed
-#define S3_ERROR_EXCEPTION         -7   // Exception error
-#define S3_ERROR_UNKNOWN           -8   // Unknown error
-
 #endif // S3UPLOADLIB_H
