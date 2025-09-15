@@ -247,7 +247,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     Dim uploadId As String
     startCode = startObj("code")
     
-    If startCode <> 0 Then
+    If startCode <> 2 Then
         Debug.Print "ERROR: Failed to start async upload - " & startObj("message")
         UploadSingleFile = False
         Exit Function
@@ -275,7 +275,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
         Set statusObj = JsonConverter.ParseJson(statusResponse)
         statusCode = statusObj("code")
         
-        If statusCode = 0 Then
+        If statusCode = 2 Then
             ' Parse the status from the message field (which contains JSON string)
             uploadStatus = statusObj("status")
             

@@ -41,19 +41,22 @@ static bool g_isInitialized = false;
 static Aws::SDKOptions g_options;
 
 // Async upload retry configuration
-static const int MAX_UPLOAD_RETRIES = 3;  // Maximum number of retry attempts for failed uploads
+// Maximum number of retry attempts for failed uploads
+static const int MAX_UPLOAD_RETRIES = 3;
 
-// S3 error code enumeration - defines possible error codes
-enum S3ErrorCode {
-    S3_SUCCESS = 0,            // Success
-    S3_ERROR_INVALID_PARAMS = -1,     // Invalid parameters
-    S3_ERROR_NOT_INITIALIZED = -2,    // SDK not initialized
-    S3_ERROR_FILE_NOT_EXISTS = -3,     // File does not exist
-    S3_ERROR_FILE_READ_ERROR = -4,     // File read error
-    S3_ERROR_FILE_OPEN_ERROR = -5,     // File open error
-    S3_ERROR_UPLOAD_FAILED = -6,    // S3 upload failed
-    S3_ERROR_EXCEPTION = -7,         // Exception error
-    S3_ERROR_UNKNOWN = -8            // Unknown error
+
+// Upload status enumeration - defines possible states of an async upload
+enum UploadStatus {
+    // Upload is waiting to start
+    UPLOAD_PENDING = 0,      
+    // Upload is currently in progress
+    UPLOAD_UPLOADING = 1,    
+    // Upload completed successfully
+    UPLOAD_SUCCESS = 2,      
+    // Upload failed with error
+    UPLOAD_FAILED = 3,      
+    // Upload was cancelled by user
+    UPLOAD_CANCELLED = 4     
 };
 
 // Error message constants
@@ -126,7 +129,7 @@ extern "C" S3UPLOAD_API const char* __stdcall CleanupAwsSDK() {
             return unknownError.c_str();
         }
     } else {
-        static std::string notInitialized = create_response(S3_ERROR_NOT_INITIALIZED, "AWS SDK was not initialized");
+        static std::string notInitialized = create_response(UPLOAD_FAILED, "AWS SDK was not initialized");
         return notInitialized.c_str();
     }
 }
@@ -164,25 +167,25 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileSync(
 
     // Parameter validation
      if (!accessKey || !secretKey || !region || !bucketName || !objectKey || !localFilePath) {
-        response = create_response(S3_ERROR_INVALID_PARAMS, formatErrorMessage(ErrorMessages::INVALID_PARAMETERS));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::INVALID_PARAMETERS));
         return response.c_str();
     }
 
     if (!g_isInitialized) {
-        response = create_response(S3_ERROR_NOT_INITIALIZED, formatErrorMessage(ErrorMessages::SDK_NOT_INITIALIZED));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::SDK_NOT_INITIALIZED));
         return response.c_str();
     }
 
     // Check if file exists
     if (!FileExists(localFilePath)) {
-        response = create_response(S3_ERROR_FILE_NOT_EXISTS, formatErrorMessage(ErrorMessages::LOCAL_FILE_NOT_EXIST, localFilePath));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::LOCAL_FILE_NOT_EXIST, localFilePath));
         return response.c_str();
     }
 
     // Get file size
     long fileSize = GetS3FileSize(localFilePath);
     if (fileSize < 0) {
-        response = create_response(S3_ERROR_FILE_READ_ERROR, formatErrorMessage(ErrorMessages::CANNOT_READ_FILE_SIZE, localFilePath));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::CANNOT_READ_FILE_SIZE, localFilePath));
         return response.c_str();
     }
 
@@ -201,8 +204,10 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileSync(
         AWS_LOGSTREAM_INFO("S3Upload", "Creating S3 client configuration...");
         Aws::S3::S3ClientConfiguration clientConfig;
         clientConfig.region = region;
-        clientConfig.requestTimeoutMs = 30000;  // 30 seconds timeout
-        clientConfig.connectTimeoutMs = 10000;  // 10 seconds connect timeout
+        // 30 seconds timeout
+        clientConfig.requestTimeoutMs = 30000;  
+        // 10 seconds connect timeout
+        clientConfig.connectTimeoutMs = 10000;  
 
         // Create AWS credentials (with Session Token)
         AWS_LOGSTREAM_INFO("S3Upload", "Creating AWS credentials...");
@@ -239,7 +244,7 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileSync(
 
         if (!inputData->is_open()) {
             AWS_LOGSTREAM_ERROR("S3Upload", "Failed to open file: " << localFilePath);
-            response = create_response(S3_ERROR_FILE_OPEN_ERROR, formatErrorMessage(ErrorMessages::CANNOT_OPEN_FILE, localFilePath));
+            response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::CANNOT_OPEN_FILE, localFilePath));
             return response.c_str();
         }
 
@@ -268,7 +273,7 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileSync(
             }
 
             AWS_LOGSTREAM_INFO("S3Upload", "Upload SUCCESS: " << oss.str());
-            response = create_response(S3_SUCCESS, oss.str());
+            response = create_response(UPLOAD_SUCCESS, oss.str());
             return response.c_str();
         } else {
             auto error = outcome.GetError();
@@ -278,41 +283,42 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileSync(
 
             AWS_LOGSTREAM_ERROR("S3Upload", "Upload FAILED: " << oss.str());
             AWS_LOGSTREAM_ERROR("S3Upload", "Error type: " << error.GetExceptionName());
-            response = create_response(S3_ERROR_UPLOAD_FAILED, oss.str());
+            response = create_response(UPLOAD_FAILED, oss.str());
             return response.c_str();
         }
 
     } catch (const std::exception& e) {
         AWS_LOGSTREAM_ERROR("S3Upload", "Exception caught in UploadFileToS3WithToken: " << e.what());
-      response = create_response(S3_ERROR_EXCEPTION, formatErrorMessage(ErrorMessages::UPLOAD_EXCEPTION, e.what()));
+      response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::UPLOAD_EXCEPTION, e.what()));
         return response.c_str();
     } catch (...) {
         AWS_LOGSTREAM_ERROR("S3Upload", "Unknown exception caught in UploadFileToS3WithToken");
-        response = create_response(S3_ERROR_UNKNOWN, formatErrorMessage(ErrorMessages::UNKNOWN_ERROR));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::UNKNOWN_ERROR));
         return response.c_str();
     }
 }
 
-// Upload status enumeration - defines possible states of an async upload
-enum UploadStatus {
-    UPLOAD_PENDING = 0,      // Upload is waiting to start
-    UPLOAD_UPLOADING = 1,    // Upload is currently in progress
-    UPLOAD_SUCCESS = 2,      // Upload completed successfully
-    UPLOAD_FAILED = 3,       // Upload failed with error
-    UPLOAD_CANCELLED = 4     // Upload was cancelled by user
-};
-
 // Async upload progress information structure
 // Contains all tracking data for a single upload operation
 struct AsyncUploadProgress {
-    std::string uploadId;           // Unique identifier for this upload
-    UploadStatus status;            // Current status of the upload
-    long long totalSize;            // Total size of file being uploaded (in bytes)
-    std::string errorMessage;       // Error message if upload failed
-    std::string localFilePath;       // Error message if upload failed
-    std::chrono::steady_clock::time_point startTime; // When upload started
-    std::chrono::steady_clock::time_point endTime;   // When upload completed
-    std::atomic<bool> shouldCancel; // Atomic flag for cancellation requests
+    // Unique identifier for this upload
+    std::string uploadId;           
+    // Current status of the upload
+    UploadStatus status;           
+    // Total size of file being uploaded (in bytes)
+    long long totalSize;           
+    // Error message if upload failed
+    std::string errorMessage;      
+    // Local file path
+    std::string localFilePath;   
+    // s3 object key
+    std::string s3ObjectKey;   
+    // When upload started
+    std::chrono::steady_clock::time_point startTime; 
+    // When upload completed
+    std::chrono::steady_clock::time_point endTime;  
+    // Atomic flag for cancellation requests
+    std::atomic<bool> shouldCancel; 
 
     // Constructor - initialize with default values
     AsyncUploadProgress() : status(UPLOAD_PENDING), totalSize(0), shouldCancel(false) {}
@@ -322,7 +328,9 @@ struct AsyncUploadProgress {
 // Provides centralized tracking and status management for concurrent file uploads
 class AsyncUploadManager {
 private:
-    std::mutex mutex_;  // Mutex for thread-safe operations
+    // Mutex for thread-safe operations
+    std::mutex mutex_; 
+    // Map of upload ID to progress info
     std::unordered_map<std::string, std::shared_ptr<AsyncUploadProgress>> uploads_;  // Map of upload ID to progress info
 
 public:
@@ -334,11 +342,12 @@ public:
 
     // Add a new upload to tracking system
     // Returns the upload ID for reference
-    std::string addUpload(const std::string& uploadId, const std::string& localFilePath) {
+    std::string addUpload(const std::string& uploadId, const std::string& localFilePath, const std::string& s3ObjectKey) {
         std::lock_guard<std::mutex> lock(mutex_);
         auto progress = std::make_shared<AsyncUploadProgress>();
         progress->uploadId = uploadId;
         progress->localFilePath = localFilePath;
+        progress->s3ObjectKey = s3ObjectKey;
         uploads_[uploadId] = progress;
         return uploadId;
     }
@@ -442,8 +451,10 @@ void asyncUploadWorker(const std::string& uploadId,
         // Step 9: Configure S3 client settings
         Aws::S3::S3ClientConfiguration clientConfig;
         clientConfig.region = region;
-        clientConfig.requestTimeoutMs = 30000;  // 30 seconds timeout
-        clientConfig.connectTimeoutMs = 10000;  // 10 seconds connect timeout
+        // 30 seconds timeout
+        clientConfig.requestTimeoutMs = 30000;  
+        // 10 seconds connect timeout
+        clientConfig.connectTimeoutMs = 10000;
 
         // Step 10: Create AWS credentials (support both permanent and temporary STS tokens)
         Aws::Auth::AWSCredentials credentials;
@@ -564,13 +575,13 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileAsync(
 
     // Step 1: Validate input parameters
     if (!accessKey || !secretKey || !region || !bucketName || !objectKey || !localFilePath) {
-        response = create_response(S3_ERROR_INVALID_PARAMS, formatErrorMessage(ErrorMessages::INVALID_PARAMETERS));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::INVALID_PARAMETERS));
         return response.c_str();
     }
 
     // Step 2: Check if AWS SDK is initialized
     if (!g_isInitialized) {
-        response = create_response(S3_ERROR_NOT_INITIALIZED, formatErrorMessage(ErrorMessages::SDK_NOT_INITIALIZED));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage(ErrorMessages::SDK_NOT_INITIALIZED));
         return response.c_str();
     }
 
@@ -581,7 +592,7 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileAsync(
         std::string uploadId = "async_upload_" + std::to_string(timestamp);
 
         // Step 4: Register upload with manager for progress tracking
-        AsyncUploadManager::getInstance().addUpload(uploadId, localFilePath);
+        AsyncUploadManager::getInstance().addUpload(uploadId, localFilePath, objectKey);
 
         // Step 5: Convert C-style parameters to C++ strings (avoid pointer lifetime issues)
         std::string strAccessKey = accessKey;
@@ -596,19 +607,20 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileAsync(
         std::thread uploadThread(asyncUploadWorker, uploadId,
                                strAccessKey, strSecretKey, strSessionToken,
                                strRegion, strBucketName, strObjectKey, strLocalFilePath);
-        uploadThread.detach(); // Detach thread so it runs independently
+        // Detach thread so it runs independently
+        uploadThread.detach(); 
 
         // Step 7: Return success response with upload ID
-        response = create_response(S3_SUCCESS, uploadId);
+        response = create_response(UPLOAD_SUCCESS, uploadId);
         return response.c_str();
 
     } catch (const std::exception& e) {
         // Step 8: Handle exceptions during thread creation
-        response = create_response(S3_ERROR_EXCEPTION, formatErrorMessage("Failed to start async upload", e.what()));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to start async upload", e.what()));
         return response.c_str();
     } catch (...) {
         // Step 9: Handle unknown exceptions
-        response = create_response(S3_ERROR_UNKNOWN, formatErrorMessage("Failed to start async upload", ErrorMessages::UNKNOWN_ERROR));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to start async upload", ErrorMessages::UNKNOWN_ERROR));
         return response.c_str();
     }
 }
@@ -620,14 +632,14 @@ extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* u
 
     // Step 1: Validate upload ID parameter
     if (!uploadId) {
-        response = create_response(S3_ERROR_INVALID_PARAMS, formatErrorMessage("Upload ID is null"));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage("Upload ID is null"));
         return response.c_str();
     }
 
     // Step 2: Look up upload progress in manager
     auto progress = AsyncUploadManager::getInstance().getUpload(uploadId);
     if (!progress) {
-        response = create_response(S3_ERROR_INVALID_PARAMS, formatErrorMessage("Upload ID not found"));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage("Upload ID not found"));
         return response.c_str();
     }
 
@@ -635,11 +647,12 @@ extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* u
         // Step 3: Build JSON response with upload information
         std::ostringstream oss;
         oss << "{"
-            << "\"code\":" << S3_SUCCESS << ","
+            << "\"code\":" << UPLOAD_SUCCESS << ","
             << "\"uploadId\":\"" << progress->uploadId << "\","
             << "\"status\":" << progress->status << ","
             << "\"totalSize\":" << progress->totalSize << ","
             << "\"localFilePath\":\"" << progress->localFilePath << "\","
+            << "\"s3ObjectKey\":\"" << progress->s3ObjectKey << "\","
             << "\"errorMessage\":\"" << progress->errorMessage << "\"";
 
         // Step 4: Calculate duration if upload is completed (success or failed)
@@ -656,11 +669,11 @@ extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* u
 
     } catch (const std::exception& e) {
         // Step 6: Handle exceptions during status query
-        response = create_response(S3_ERROR_EXCEPTION, formatErrorMessage("Failed to get upload status", e.what()));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to get upload status", e.what()));
         return response.c_str();
     } catch (...) {
         // Step 7: Handle unknown exceptions
-        response = create_response(S3_ERROR_UNKNOWN, formatErrorMessage("Failed to get upload status", ErrorMessages::UNKNOWN_ERROR));
+        response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to get upload status", ErrorMessages::UNKNOWN_ERROR));
         return response.c_str();
     }
 }
