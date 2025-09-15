@@ -651,8 +651,6 @@ extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* u
             << "\"uploadId\":\"" << progress->uploadId << "\","
             << "\"status\":" << progress->status << ","
             << "\"totalSize\":" << progress->totalSize << ","
-            << "\"localFilePath\":\"" << progress->localFilePath << "\","
-            << "\"s3ObjectKey\":\"" << progress->s3ObjectKey << "\","
             << "\"errorMessage\":\"" << progress->errorMessage << "\"";
 
         // Step 4: Calculate duration if upload is completed (success or failed)
