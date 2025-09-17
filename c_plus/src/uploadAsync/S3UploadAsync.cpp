@@ -223,22 +223,27 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileAsync(
     }
 }
 
-// Get async upload status function - queries current status of an upload
-// Returns JSON with upload status, progress info, and error messages
-extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* uploadId) {
-    static std::string response;
-
-    // Step 1: Validate upload ID parameter
-    if (!uploadId) {
-        response = create_response(UPLOAD_FAILED, formatErrorMessage("Upload ID is null"));
-        return response.c_str();
+// Get async upload status as byte array - safer for VB6 interop
+// Returns the size of data copied to buffer, 0 on error
+extern "C" S3UPLOAD_API int __stdcall GetAsyncUploadStatusBytes(
+    const char* uploadId, 
+    unsigned char* buffer, 
+    int bufferSize
+) {
+    // Step 1: Validate parameters
+    if (!uploadId || !buffer || bufferSize <= 0) {
+        return 0;
     }
 
     // Step 2: Look up upload progress in manager
     auto progress = AsyncUploadManager::getInstance().getUpload(uploadId);
     if (!progress) {
-        response = create_response(UPLOAD_FAILED, formatErrorMessage("Upload ID not found"));
-        return response.c_str();
+        // Return error JSON if upload not found
+        std::string errorJson = create_response(UPLOAD_FAILED, formatErrorMessage("Upload ID not found"));
+        int dataSize = static_cast<int>(errorJson.size());
+        if (dataSize > bufferSize) dataSize = bufferSize;
+        memcpy(buffer, errorJson.c_str(), dataSize);
+        return dataSize;
     }
 
     try {
@@ -247,6 +252,8 @@ extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* u
         oss << "{"
             << "\"code\":" << UPLOAD_SUCCESS << ","
             << "\"uploadId\":\"" << progress->uploadId << "\","
+            << "\"localFilePath\":\"" << progress->localFilePath << "\","
+            << "\"s3ObjectKey\":\"" << progress->s3ObjectKey << "\","
             << "\"status\":" << progress->status << ","
             << "\"totalSize\":" << progress->totalSize << ","
             << "\"errorMessage\":\"" << progress->errorMessage << "\"";
@@ -259,16 +266,31 @@ extern "C" S3UPLOAD_API const char* __stdcall GetAsyncUploadStatus(const char* u
         }
 
         oss << "}";
-        // Step 5: Return status information as JSON string
-        return oss.str().c_str();
 
+        std::string response = oss.str();
+        
+        // Step 5: Copy data to buffer (truncate if necessary)
+        int dataSize = static_cast<int>(response.size());
+        if (dataSize > bufferSize) {
+            dataSize = bufferSize;
+        }
+        
+        memcpy(buffer, response.c_str(), dataSize);
+        return dataSize;
+        
     } catch (const std::exception& e) {
         // Step 6: Handle exceptions during status query
-        response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to get upload status", e.what()));
-        return response.c_str();
+        std::string errorJson = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to get upload status", e.what()));
+        int dataSize = static_cast<int>(errorJson.size());
+        if (dataSize > bufferSize) dataSize = bufferSize;
+        memcpy(buffer, errorJson.c_str(), dataSize);
+        return dataSize;
     } catch (...) {
         // Step 7: Handle unknown exceptions
-        response = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to get upload status", ErrorMessage::UNKNOWN_ERROR));
-        return response.c_str();
+        std::string errorJson = create_response(UPLOAD_FAILED, formatErrorMessage("Failed to get upload status", ErrorMessage::UNKNOWN_ERROR));
+        int dataSize = static_cast<int>(errorJson.size());
+        if (dataSize > bufferSize) dataSize = bufferSize;
+        memcpy(buffer, errorJson.c_str(), dataSize);
+        return dataSize;
     }
 }

@@ -238,7 +238,7 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     ' 4. Start asynchronous upload to S3
     Debug.Print "Starting async upload to S3 - " & filePath
     Dim startResponse As String
-    startResponse = UploadFileASync(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
+    startResponse = UploadFileAsync(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath)
     Debug.Print startResponse
     ' 5. Parse start response and check if upload started successfully
     Dim startObj As Object
@@ -270,15 +270,45 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     waitTime = 0
     
     Do While waitTime < maxWaitTime
-        statusResponse = GetAsyncUploadStatus(uploadId)
-        Debug.Print statusResponse
+        ' Use byte array method for safer data transfer
+        Dim buffer(0 To 2047) As Byte ' 2KB buffer should be enough for status JSON
+        Dim bytesReceived As Long
+
+        Debug.Print "Checking status for upload ID: " & uploadId & " (attempt " & (waitTime + 1) & ")"
+
+        ' Try byte array method first
+        On Error GoTo ErrorHandler
+        bytesReceived = GetAsyncUploadStatusBytes(uploadId, buffer(0), UBound(buffer) + 1)
+        On Error GoTo ErrorHandler
+
+        If bytesReceived > 0 Then
+            ' Convert byte array to string manually (safer method)
+            statusResponse = ""
+            Dim i As Long
+            For i = 0 To bytesReceived - 1
+                statusResponse = statusResponse & Chr(buffer(i))
+            Next i
+
+            Debug.Print "Status response: " & statusResponse
+        Else
+            Debug.Print "No data received from GetAsyncUploadStatusBytes, trying string method"
+            GoTo ErrorHandler
+        End If
+
+        GoTo ParseResponse
+
+ParseResponse:
+        ' Parse JSON response
+        On Error GoTo JsonParseError
         Set statusObj = JsonConverter.ParseJson(statusResponse)
+        On Error GoTo ErrorHandler
+
         statusCode = statusObj("code")
-        
+
         If statusCode = 2 Then
             ' Parse the status from the message field (which contains JSON string)
             uploadStatus = statusObj("status")
-            
+
             If uploadStatus = 2 Then ' SIMPLE_UPLOAD_SUCCESS
                 isCompleted = True
                 Exit Do
@@ -293,12 +323,22 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
             Debug.Print "ERROR: Failed to get upload status - " & statusObj("errorMessage")
             Exit Do
         End If
-        
+
         ' Wait 1 second before checking again
         DoEvents
         Sleep 1000
         waitTime = waitTime + 1
     Loop
+
+    GoTo ContinueAfterLoop
+
+JsonParseError:
+    Debug.Print "ERROR: Failed to parse JSON response: " & statusResponse
+    Debug.Print "JSON Parse Error: " & Err.Description
+    isError = True
+    On Error GoTo ErrorHandler
+
+ContinueAfterLoop:
     
     ' 7. Check final result
     If isCompleted Then

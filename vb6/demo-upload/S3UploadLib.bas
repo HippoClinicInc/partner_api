@@ -36,10 +36,14 @@ Declare Function UploadFileAsync Lib "S3UploadLib.dll" ( _
     ByVal localFilePath As String _
 ) As String
 
-' Get simple upload status
+' Get upload status as byte array (safer for large responses)
 ' Parameters:
 '   uploadId: Upload ID returned by StartAsyncUpload
-' Return value: JSON string with upload status information
-Declare Function GetAsyncUploadStatus Lib "S3UploadLib.dll" ( _
-    ByVal uploadId As String _
-) As String
+'   buffer: Byte array to receive the JSON data
+'   bufferSize: Size of the buffer
+' Return value: Number of bytes copied to buffer, 0 on error
+Declare Function GetAsyncUploadStatusBytes Lib "S3UploadLib.dll" ( _
+    ByVal uploadId As String, _
+    ByRef buffer As Byte, _
+    ByVal bufferSize As Long _
+) As Long
