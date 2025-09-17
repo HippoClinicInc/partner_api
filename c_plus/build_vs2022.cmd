@@ -3,24 +3,56 @@ echo Building S3UploadLib.dll with Visual Studio 2022
 echo.
 
 REM Set VS 2022 environment
-call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars32.bat"
+call "F:\visualStudio\VC\Auxiliary\Build\vcvars32.bat"
 
 echo Build environment setup complete
 echo.
 
-REM Compile object file
-echo Step 1: Compiling source file
-cl /std:c++14 /EHsc /MD /c /DS3UPLOAD_EXPORTS /I"aws-sdk-cpp\include" S3UploadLib.cpp
+REM Create build directory if it doesn't exist
+if not exist build mkdir build
+echo Created build directory
+echo.
+
+REM Compile object files to build directory
+echo Step 1: Compiling common source file
+cl /std:c++14 /EHsc /MD /c /DS3UPLOAD_EXPORTS /I"aws-sdk-cpp\include" /Fo"build\S3Common.obj" src\common\S3Common.cpp
 
 if %ERRORLEVEL% neq 0 (
-    echo Compilation failed!
+    echo Compilation of S3Common.cpp failed!
+    pause
+    exit /b 1
+)
+
+echo Step 2: Compiling sync upload source file
+cl /std:c++14 /EHsc /MD /c /DS3UPLOAD_EXPORTS /I"aws-sdk-cpp\include" /Fo"build\S3UploadSync.obj" src\uploadSync\S3UploadSync.cpp
+
+if %ERRORLEVEL% neq 0 (
+    echo Compilation of S3UploadSync.cpp failed!
+    pause
+    exit /b 1
+)
+
+echo Step 3: Compiling async upload source file
+cl /std:c++14 /EHsc /MD /c /DS3UPLOAD_EXPORTS /I"aws-sdk-cpp\include" /Fo"build\S3UploadAsync.obj" src\uploadAsync\S3UploadAsync.cpp
+
+if %ERRORLEVEL% neq 0 (
+    echo Compilation of S3UploadAsync.cpp failed!
+    pause
+    exit /b 1
+)
+
+echo Step 4: Compiling main source file
+cl /std:c++14 /EHsc /MD /c /DS3UPLOAD_EXPORTS /I"aws-sdk-cpp\include" /Fo"build\main.obj" src\main.cpp
+
+if %ERRORLEVEL% neq 0 (
+    echo Compilation of main.cpp failed!
     pause
     exit /b 1
 )
 
 echo.
-echo Step 2: Linking to create DLL...
-link /DLL /OUT:S3UploadLib.dll S3UploadLib.obj /LIBPATH:"aws-sdk-cpp\lib" aws-cpp-sdk-core.lib aws-cpp-sdk-s3.lib aws-c-common.lib aws-c-auth.lib aws-c-cal.lib aws-c-compression.lib aws-c-event-stream.lib aws-c-http.lib aws-c-io.lib aws-c-mqtt.lib aws-c-s3.lib aws-c-sdkutils.lib aws-checksums.lib aws-crt-cpp.lib zlib.lib kernel32.lib user32.lib advapi32.lib ws2_32.lib /DEF:S3UploadLib.def
+echo Step 5: Linking to create DLL...
+link /DLL /OUT:"build\S3UploadLib.dll" "build\S3Common.obj" "build\S3UploadSync.obj" "build\S3UploadAsync.obj" "build\main.obj" /LIBPATH:"aws-sdk-cpp\lib" aws-cpp-sdk-core.lib aws-cpp-sdk-s3.lib aws-c-common.lib aws-c-auth.lib aws-c-cal.lib aws-c-compression.lib aws-c-event-stream.lib aws-c-http.lib aws-c-io.lib aws-c-mqtt.lib aws-c-s3.lib aws-c-sdkutils.lib aws-checksums.lib aws-crt-cpp.lib zlib.lib kernel32.lib user32.lib advapi32.lib ws2_32.lib /DEF:S3UploadLib.def
 
 if %ERRORLEVEL% neq 0 (
     echo Linking failed!
@@ -29,14 +61,25 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
-echo Build successful! Generated files:
-if exist S3UploadLib.dll echo S3UploadLib.dll - Build successful!
-if exist S3UploadLib.lib echo S3UploadLib.lib - Import library generated!
+echo Step 6: Copying AWS SDK DLLs to build directory...
+copy "aws-sdk-cpp\bin\*.dll" "build\" >nul 2>&1
+echo AWS SDK DLLs copied to build directory
+
+echo.
+echo Build successful! Generated files in build directory:
+if exist "build\S3UploadLib.dll" echo build\S3UploadLib.dll - Build successful!
+if exist "build\S3UploadLib.lib" echo build\S3UploadLib.lib - Import library generated!
+if exist "build\S3UploadLib.exp" echo build\S3UploadLib.exp - Export file generated!
+
+echo.
+echo Build directory contents:
+dir build\*.dll
+dir build\*.lib
+dir build\*.exp
 
 echo.
 echo Next steps:
-echo 1. Copy S3UploadLib.dll to your VB6 program directory
-echo 2. Copy all DLL files from aws-sdk-cpp\bin to VB6 program directory
-echo 3. Use S3UploadLib.bas declarations in your VB6 project
+echo 1. Copy all files from build\ directory to your VB6 program directory
+echo 2. Use S3UploadLib.bas declarations in your VB6 project
 echo.
 pause
