@@ -3,4 +3,4 @@ InitializeAwsSDK
 CleanupAwsSDK
 UploadFileSync
 UploadFileAsync
-GetAsyncUploadStatus
+GetAsyncUploadStatusBytes

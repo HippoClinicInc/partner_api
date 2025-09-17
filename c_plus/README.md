@@ -55,11 +55,34 @@ download_aws_sdk.bat
 c_plus/
 ├── README.md                    # This file
 ├── build_vs2022.cmd            # Build script for Visual Studio 2022
-├── S3UploadLib.h               # Header file with API declarations
-├── S3UploadLib.cpp             # Main implementation file
+├── download_aws_sdk.bat        # AWS SDK installation script
 ├── S3UploadLib.def             # DLL export definitions
-├── S3UploadLib.dll             # Generated DLL (after build)
-├── S3UploadLib.lib             # Generated import library (after build)
+├── src/                        # Source code directory
+│   ├── main.cpp                # Main entry point
+│   ├── common/                 # Common utilities
+│   │   ├── S3Common.cpp        # S3 common functionality implementation
+│   │   └── S3Common.h          # S3 common functionality header
+│   ├── uploadAsync/            # Asynchronous upload implementation
+│   │   └── S3UploadAsync.cpp   # Async S3 upload functionality
+│   └── uploadSync/             # Synchronous upload implementation
+│       └── S3UploadSync.cpp    # Sync S3 upload functionality
+├── build/                      # Build output directory (after build)
+│   ├── S3UploadLib.dll         # Generated DLL
+│   ├── S3UploadLib.lib         # Generated import library
+│   ├── S3UploadLib.exp         # Generated export file
+│   ├── *.obj                   # Object files
+│   └── *.dll                   # AWS SDK DLLs (copied for runtime)
+├── aws-sdk-cpp/                # AWS C++ SDK installation (after download_aws_sdk.bat)
+│   ├── bin/                    # AWS SDK DLL files
+│   ├── lib/                    # AWS SDK static libraries
+│   ├── include/                # AWS SDK header files
+│   │   └── aws/                # AWS SDK includes
+│   └── share/                  # AWS SDK configuration files
+└── vcpkg/                      # vcpkg package manager (after download_aws_sdk.bat)
+    ├── vcpkg.exe               # vcpkg executable
+    ├── installed/              # Installed packages
+    ├── buildtrees/             # Build artifacts
+    └── ...                     # Other vcpkg files
 ```
 
 ## 🔧 Build Environment
