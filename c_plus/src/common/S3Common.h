@@ -16,6 +16,9 @@
 #include <iostream>
 #include <chrono>
 #include <unordered_map>
+#include <vector>
+#include <queue>
+#include <condition_variable>
 // For strlen
 #include <cstring>
 // For std::quoted
@@ -124,10 +127,16 @@ struct AsyncUploadProgress {
 // Provides centralized tracking and status management for concurrent file uploads
 class AsyncUploadManager {
 private:
-    std::mutex mutex_;  // Mutex for thread-safe operations
+    mutable std::mutex mutex_;  // Mutex for thread-safe operations
     std::unordered_map<String, std::shared_ptr<AsyncUploadProgress>> uploads_;  // Map of upload ID to progress info
 
 public:
+    // Constructor
+    AsyncUploadManager() = default;
+    
+    // Destructor
+    ~AsyncUploadManager() = default;
+
     // Get singleton instance of the manager
     static AsyncUploadManager& getInstance() {
         static AsyncUploadManager instance;
@@ -142,6 +151,7 @@ public:
         progress->uploadId = uploadId;
         progress->localFilePath = localFilePath;
         progress->s3ObjectKey = s3ObjectKey;
+        progress->status = UPLOAD_PENDING;  // Set to pending initially
         uploads_[uploadId] = progress;
         return uploadId;
     }
@@ -152,6 +162,33 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = uploads_.find(uploadId);
         return it != uploads_.end() ? it->second : nullptr;
+    }
+
+    // Get upload progress information by dataId
+    // Returns shared_ptr to progress info or nullptr if not found
+    std::shared_ptr<AsyncUploadProgress> getUploadByDataId(const String& dataId) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        String prefix = dataId + "_";
+        for (auto& pair : uploads_) {
+            if (pair.first.find(prefix) == 0) {
+                return pair.second;
+            }
+        }
+        return nullptr;
+    }
+
+    // Get all uploads that start with the given dataId
+    // Returns a vector of all matching upload progress info
+    std::vector<std::shared_ptr<AsyncUploadProgress>> getAllUploadsByDataId(const String& dataId) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<std::shared_ptr<AsyncUploadProgress>> result;
+        String prefix = dataId + "_";
+        for (auto& pair : uploads_) {
+            if (pair.first.find(prefix) == 0) {
+                result.push_back(pair.second);
+            }
+        }
+        return result;
     }
 
     // Remove upload from tracking system (cleanup)
@@ -173,6 +210,25 @@ public:
             }
         }
     }
+
+public:
+    // Get total number of uploads
+    size_t getTotalUploads() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return uploads_.size();
+    }
+    
+    // Get number of pending uploads
+    size_t getPendingUploads() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        size_t count = 0;
+        for (const auto& pair : uploads_) {
+            if (pair.second->status == UPLOAD_PENDING) {
+                count++;
+            }
+        }
+        return count;
+    }
 };
 
 // Global variables (extern declarations)
@@ -188,6 +244,7 @@ extern "C" {
     S3UPLOAD_API long __stdcall GetS3FileSize(const char* filePath);
     S3UPLOAD_API const char* __stdcall InitializeAwsSDK();
     S3UPLOAD_API const char* __stdcall CleanupAwsSDK();
+    S3UPLOAD_API const char* __stdcall CleanupUploadsByDataId(const char* dataId);
 }
 
 // S3 client creation helper
