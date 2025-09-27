@@ -4,3 +4,4 @@ CleanupAwsSDK
 UploadFileSync
 UploadFileAsync
 GetAsyncUploadStatusBytes
+CleanupUploadsByDataId

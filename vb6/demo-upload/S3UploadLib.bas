@@ -33,17 +33,27 @@ Declare Function UploadFileAsync Lib "S3UploadLib.dll" ( _
     ByVal region As String, _
     ByVal bucketName As String, _
     ByVal objectKey As String, _
-    ByVal localFilePath As String _
+    ByVal localFilePath As String, _
+    ByVal dataId As String _
 ) As String
 
 ' Get upload status as byte array (safer for large responses)
 ' Parameters:
-'   uploadId: Upload ID returned by StartAsyncUpload
+'   dataId: Data ID used to identify the upload
 '   buffer: Byte array to receive the JSON data
 '   bufferSize: Size of the buffer
 ' Return value: Number of bytes copied to buffer, 0 on error
 Declare Function GetAsyncUploadStatusBytes Lib "S3UploadLib.dll" ( _
-    ByVal uploadId As String, _
+    ByVal dataId As String, _
     ByRef buffer As Byte, _
     ByVal bufferSize As Long _
 ) As Long
+
+' Clean up uploads by dataId - removes all uploads that match the dataId prefix
+' Parameters:
+'   dataId: Data ID used to identify the uploads to clean up
+' Return value: JSON string indicating success or failure
+' { "code": 2, "message": "Successfully cleaned up X upload(s) for dataId: xxx" }
+Declare Function CleanupUploadsByDataId Lib "S3UploadLib.dll" ( _
+    ByVal dataId As String _
+) As String
