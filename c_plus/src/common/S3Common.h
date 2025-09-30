@@ -16,6 +16,9 @@
 #include <iostream>
 #include <chrono>
 #include <unordered_map>
+#include <vector>
+#include <queue>
+#include <condition_variable>
 // For strlen
 #include <cstring>
 // For std::quoted
@@ -61,6 +64,17 @@ inline unsigned __int64 _byteswap_uint64(unsigned __int64 x) {
 // Async upload retry configuration
 // Maximum number of retry attempts for failed uploads
 static const int MAX_UPLOAD_RETRIES = 3;
+
+// Maximum number of concurrent uploads allowed
+static const size_t MAX_UPLOAD_LIMIT = 100;
+
+// Upload ID separator constant (used in uploadId = dataId + "_" + timestamp)
+static const String UPLOAD_ID_SEPARATOR = "_";
+
+// Upload ID helper functions
+inline String getUploadIdPrefixByDataId(const String& dataId) {
+    return dataId + UPLOAD_ID_SEPARATOR;
+}
 
 // Error message constants
 namespace ErrorMessage {
@@ -124,10 +138,16 @@ struct AsyncUploadProgress {
 // Provides centralized tracking and status management for concurrent file uploads
 class AsyncUploadManager {
 private:
-    std::mutex mutex_;  // Mutex for thread-safe operations
+    mutable std::mutex mutex_;  // Mutex for thread-safe operations
     std::unordered_map<String, std::shared_ptr<AsyncUploadProgress>> uploads_;  // Map of upload ID to progress info
 
 public:
+    // Constructor
+    AsyncUploadManager() = default;
+    
+    // Destructor
+    ~AsyncUploadManager() = default;
+
     // Get singleton instance of the manager
     static AsyncUploadManager& getInstance() {
         static AsyncUploadManager instance;
@@ -142,6 +162,7 @@ public:
         progress->uploadId = uploadId;
         progress->localFilePath = localFilePath;
         progress->s3ObjectKey = s3ObjectKey;
+        progress->status = UPLOAD_PENDING;  // Set to pending initially
         uploads_[uploadId] = progress;
         return uploadId;
     }
@@ -152,6 +173,33 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         auto it = uploads_.find(uploadId);
         return it != uploads_.end() ? it->second : nullptr;
+    }
+
+    // Get upload progress information by dataId
+    // Returns shared_ptr to progress info or nullptr if not found
+    std::shared_ptr<AsyncUploadProgress> getUploadByDataId(const String& dataId) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        String prefix = getUploadIdPrefixByDataId(dataId);
+        for (auto& pair : uploads_) {
+            if (pair.first.find(prefix) == 0) {
+                return pair.second;
+            }
+        }
+        return nullptr;
+    }
+
+    // Get all uploads that start with the given dataId
+    // Returns a vector of all matching upload progress info
+    std::vector<std::shared_ptr<AsyncUploadProgress>> getAllUploadsByDataId(const String& dataId) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        std::vector<std::shared_ptr<AsyncUploadProgress>> result;
+        String prefix = getUploadIdPrefixByDataId(dataId);
+        for (auto& pair : uploads_) {
+            if (pair.first.find(prefix) == 0) {
+                result.push_back(pair.second);
+            }
+        }
+        return result;
     }
 
     // Remove upload from tracking system (cleanup)
@@ -173,6 +221,25 @@ public:
             }
         }
     }
+
+public:
+    // Get total number of uploads
+    size_t getTotalUploads() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return uploads_.size();
+    }
+    
+    // Get number of pending uploads
+    size_t getPendingUploads() const {
+        std::lock_guard<std::mutex> lock(mutex_);
+        size_t count = 0;
+        for (const auto& pair : uploads_) {
+            if (pair.second->status == UPLOAD_PENDING) {
+                count++;
+            }
+        }
+        return count;
+    }
 };
 
 // Global variables (extern declarations)
@@ -182,12 +249,16 @@ extern Aws::SDKOptions g_options;
 // Common utility functions
 String create_response(int code, const String& message);
 
+// Upload ID helper functions
+String getUploadId(const String& dataId, long long timestamp);
+
 // AWS SDK management functions (extern "C" declarations)
 extern "C" {
     S3UPLOAD_API int __stdcall FileExists(const char* filePath);
     S3UPLOAD_API long __stdcall GetS3FileSize(const char* filePath);
     S3UPLOAD_API const char* __stdcall InitializeAwsSDK();
     S3UPLOAD_API const char* __stdcall CleanupAwsSDK();
+    S3UPLOAD_API const char* __stdcall CleanupUploadsByDataId(const char* dataId);
 }
 
 // S3 client creation helper
