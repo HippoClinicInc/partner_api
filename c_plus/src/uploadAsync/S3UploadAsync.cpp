@@ -232,7 +232,6 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileAsync(
     // Step 2.1: Check upload queue limit (max 100 uploads)
     auto& manager = AsyncUploadManager::getInstance();
     size_t totalUploads = manager.getTotalUploads();
-    const size_t MAX_UPLOAD_LIMIT = 100;
     
     if (totalUploads >= MAX_UPLOAD_LIMIT) {
         // Check if there are existing uploads with the same dataId
@@ -255,7 +254,7 @@ extern "C" S3UPLOAD_API const char* __stdcall UploadFileAsync(
         // Step 3: Generate unique upload ID using dataId and current timestamp
         auto now = std::chrono::high_resolution_clock::now();
         auto timestamp = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
-        String uploadId = String(dataId) + "_" + std::to_string(timestamp);
+        String uploadId = getUploadId(dataId, timestamp);
 
         // Step 4: Register upload with manager for progress tracking and queue
         manager.addUpload(uploadId, localFilePath, objectKey);
@@ -322,42 +321,8 @@ extern "C" S3UPLOAD_API int __stdcall GetAsyncUploadStatusBytes(
         bool anyUploading = false;
         std::string errorMessage = "";
         long long totalSize = 0;
-        int completedUploads = 0;
-        int failedUploads = 0;
-        int pendingUploads = 0;
-        int uploadingUploads = 0;
-        std::string firstUploadId = "";
-        std::string firstLocalFilePath = "";
-        std::string firstS3ObjectKey = "";
-        
         for (auto& progress : allUploads) {
-            if (firstUploadId.empty()) {
-                firstUploadId = progress->uploadId;
-                firstLocalFilePath = progress->localFilePath;
-                firstS3ObjectKey = progress->s3ObjectKey;
-            }
-            
             totalSize += progress->totalSize;
-            
-            // Count uploads by status
-            switch (progress->status) {
-                case UPLOAD_SUCCESS:
-                    completedUploads++;
-                    break;
-                case UPLOAD_FAILED:
-                    failedUploads++;
-                    break;
-                case UPLOAD_PENDING:
-                    pendingUploads++;
-                    break;
-                case UPLOAD_UPLOADING:
-                    uploadingUploads++;
-                    break;
-                case UPLOAD_CANCELLED:
-                    // Treat cancelled as failed for progress calculation
-                    failedUploads++;
-                    break;
-            }
             
             if (progress->status == UPLOAD_FAILED) {
                 anyFailed = true;
@@ -382,33 +347,47 @@ extern "C" S3UPLOAD_API int __stdcall GetAsyncUploadStatusBytes(
             overallStatus = UPLOAD_UPLOADING;
         }
 
-        // Step 5: Build JSON response with combined upload information and progress
+        // Step 5: Build JSON response with array of upload information and summary
         int totalUploadCount = static_cast<int>(allUploads.size());
-        
-        // Calculate progress percentage (0-100)
-        double progressPercentage = 0.0;
-        if (totalUploadCount > 0) {
-            progressPercentage = (static_cast<double>(completedUploads) / static_cast<double>(totalUploadCount)) * 100.0;
-        }
         
         std::ostringstream oss;
         oss << "{"
             << "\"code\":" << UPLOAD_SUCCESS << ","
-            << "\"uploadId\":\"" << firstUploadId << "\","
-            << "\"completedUploads\":" << completedUploads << ","
-            << "\"failedUploads\":" << failedUploads << ","
-            << "\"pendingUploads\":" << pendingUploads << ","
-            << "\"uploadingUploads\":" << uploadingUploads << ","
-            << "\"progressPercentage\":" << std::fixed << std::setprecision(1) << progressPercentage << ","
-            << "\"localFilePath\":\"" << firstLocalFilePath << "\","
-            << "\"s3ObjectKey\":\"" << firstS3ObjectKey << "\","
             << "\"status\":" << overallStatus << ","
             << "\"totalSize\":" << totalSize << ","
             << "\"errorMessage\":\"" << errorMessage << "\","
             << "\"totalUploads\":" << totalUploadCount << ","
-            << "\"dataId\":\"" << dataId << "\"";
+            << "\"dataId\":\"" << dataId << "\","
+            << "\"uploads\":[";
 
-        oss << "}";
+        // Add array of individual upload information
+        for (size_t i = 0; i < allUploads.size(); ++i) {
+            auto& progress = allUploads[i];
+            if (i > 0) oss << ",";
+            
+            // Convert time points to milliseconds since epoch
+            auto startTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                progress->startTime.time_since_epoch()).count();
+            
+            long long endTimeMs = 0;
+            if (progress->endTime.time_since_epoch().count() > 0) {
+                endTimeMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    progress->endTime.time_since_epoch()).count();
+            }
+            
+            oss << "{"
+                << "\"uploadId\":\"" << progress->uploadId << "\","
+                << "\"localFilePath\":\"" << progress->localFilePath << "\","
+                << "\"s3ObjectKey\":\"" << progress->s3ObjectKey << "\","
+                << "\"status\":" << progress->status << ","
+                << "\"totalSize\":" << progress->totalSize << ","
+                << "\"errorMessage\":\"" << progress->errorMessage << "\","
+                << "\"startTime\":" << startTimeMs << ","
+                << "\"endTime\":" << endTimeMs
+                << "}";
+        }
+
+        oss << "]}";
 
         std::string response = oss.str();
         

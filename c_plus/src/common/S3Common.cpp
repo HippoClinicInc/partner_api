@@ -21,6 +21,11 @@ String formatErrorMessage(const String& baseMessage, const String& detail) {
     return baseMessage + ": " + detail;
 }
 
+// Upload ID helper functions
+String getUploadId(const String& dataId, long long timestamp) {
+    return dataId + UPLOAD_ID_SEPARATOR + std::to_string(timestamp);
+}
+
 // Initialize AWS SDK
 extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
     if (g_isInitialized) {
@@ -30,7 +35,7 @@ extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
 
     try {
         // Set log level (can be adjusted as needed)
-        g_options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Warn;
+        g_options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
 
         // Initialize AWS SDK
         Aws::InitAPI(g_options);

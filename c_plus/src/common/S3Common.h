@@ -65,6 +65,17 @@ inline unsigned __int64 _byteswap_uint64(unsigned __int64 x) {
 // Maximum number of retry attempts for failed uploads
 static const int MAX_UPLOAD_RETRIES = 3;
 
+// Maximum number of concurrent uploads allowed
+static const size_t MAX_UPLOAD_LIMIT = 100;
+
+// Upload ID separator constant (used in uploadId = dataId + "_" + timestamp)
+static const String UPLOAD_ID_SEPARATOR = "_";
+
+// Upload ID helper functions
+inline String getUploadIdPrefixByDataId(const String& dataId) {
+    return dataId + UPLOAD_ID_SEPARATOR;
+}
+
 // Error message constants
 namespace ErrorMessage {
     const String INVALID_PARAMETERS = "Invalid parameters: one or more required parameters are null";
@@ -168,7 +179,7 @@ public:
     // Returns shared_ptr to progress info or nullptr if not found
     std::shared_ptr<AsyncUploadProgress> getUploadByDataId(const String& dataId) {
         std::lock_guard<std::mutex> lock(mutex_);
-        String prefix = dataId + "_";
+        String prefix = getUploadIdPrefixByDataId(dataId);
         for (auto& pair : uploads_) {
             if (pair.first.find(prefix) == 0) {
                 return pair.second;
@@ -182,7 +193,7 @@ public:
     std::vector<std::shared_ptr<AsyncUploadProgress>> getAllUploadsByDataId(const String& dataId) {
         std::lock_guard<std::mutex> lock(mutex_);
         std::vector<std::shared_ptr<AsyncUploadProgress>> result;
-        String prefix = dataId + "_";
+        String prefix = getUploadIdPrefixByDataId(dataId);
         for (auto& pair : uploads_) {
             if (pair.first.find(prefix) == 0) {
                 result.push_back(pair.second);
@@ -237,6 +248,9 @@ extern Aws::SDKOptions g_options;
 
 // Common utility functions
 String create_response(int code, const String& message);
+
+// Upload ID helper functions
+String getUploadId(const String& dataId, long long timestamp);
 
 // AWS SDK management functions (extern "C" declarations)
 extern "C" {
