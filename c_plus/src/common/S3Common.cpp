@@ -35,7 +35,7 @@ extern "C" S3UPLOAD_API const char* __stdcall InitializeAwsSDK() {
 
     try {
         // Set log level (can be adjusted as needed)
-        g_options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Info;
+        g_options.loggingOptions.logLevel = Aws::Utils::Logging::LogLevel::Warn;
 
         // Initialize AWS SDK
         Aws::InitAPI(g_options);
