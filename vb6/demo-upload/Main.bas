@@ -91,7 +91,8 @@ Sub Main()
         Debug.Print "ERROR: AWS SDK initialization failed - code: " & sdkInitResult
         Exit Sub
     End If
-
+    Debug.Print "1. Submit the files to the queue. "
+    Debug.Print
     ' Determine upload type and execute upload
     isFolder = IsPathFolder(uploadFilePath)
     Dim maxWaitTime As Long
@@ -110,7 +111,9 @@ Sub Main()
         
         ' 6.1.1. Monitor folder upload status
         If uploadSuccess Then
-            Debug.Print "All folder uploads started, monitoring status..."
+             Debug.Print
+             Debug.Print "2. All folder uploads submitted, monitoring status..."
+             Debug.Print
             uploadSuccess = MonitorMultipleUploadStatus(dataId, maxWaitTime)
         End If
     Else
@@ -125,6 +128,7 @@ Sub Main()
         ' 6.2.1. Monitor single file upload status
         If uploadSuccess Then
             totalFileSize = GetLocalFileSize(uploadFilePath)
+
             Debug.Print "Single file upload started, monitoring status..."
             uploadSuccess = MonitorUploadStatus(dataId, maxWaitTime)
         End If
@@ -145,7 +149,7 @@ Sub Main()
     ' 8. Clean up upload tracking data (regardless of success or failure)
     Dim cleanupResult As String
     cleanupResult = CleanupUploadsByDataId(dataId)
-    Debug.Print "Cleanup result: " & cleanupResult
+    Debug.Print "Remove uploaded files from queue: " & cleanupResult
     
     ' 9. Cleanup AWS SDK resources
     ' Note: CleanupAwsSDK is called automatically when DLL is unloaded
@@ -224,7 +228,6 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal s3Creden
         Debug.Print "ERROR: " & failedCount & " files failed to upload"
         UploadFolderContents = False
     Else
-        Debug.Print "SUCCESS: All " & uploadedCount & " files uploaded"
         UploadFolderContents = True
     End If
     
@@ -264,7 +267,8 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     sessionToken = credentialsObj("sessionToken")
 
     ' 4. Start asynchronous upload to S3
-    Debug.Print "Starting async upload to S3 - " & filePath
+
+    Debug.Print "Submit to queue - " & filePath
     Dim startResponse As String
     startResponse = UploadFileAsync(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath, dataId)
     Debug.Print startResponse
@@ -312,7 +316,7 @@ Private Function MonitorUploadStatus(ByVal dataId As String, ByVal maxWaitTime A
         Dim buffer(0 To 2097151) As Byte ' 2MB buffer should be enough for status JSON
         Dim bytesReceived As Long
 
-        Debug.Print "Checking status for dataId: " & dataId & " (attempt " & (waitTime + 1) & ")"
+        Debug.Print "Query status for dataId: " & dataId & " (attempt " & (waitTime + 1) & ")"
 
         ' Try byte array method first
         On Error GoTo ErrorHandler
@@ -328,6 +332,7 @@ Private Function MonitorUploadStatus(ByVal dataId As String, ByVal maxWaitTime A
             Next i
 
             Debug.Print "Status response: " & statusResponse
+            Debug.Print
         Else
             Debug.Print "No data received from GetAsyncUploadStatusBytes"
             GoTo ErrorHandler
@@ -383,6 +388,7 @@ ContinueAfterLoop:
     
     ' Check final result
     If isCompleted Then
+        Debug.Print
         Debug.Print "SUCCESS: Upload completed for dataId: " & dataId
         MonitorUploadStatus = True
     ElseIf isError Then
