@@ -363,11 +363,11 @@ ParseResponse:
         End If
 
         ' Wait 10 seconds (10 x 1 second) before checking again
-        Dim i As Integer
-        For i = 1 To 10
+        Dim j As Integer
+        For j = 1 To 10
             DoEvents
             Sleep 1000
-        Next i
+        Next j
         waitTime = waitTime + 1
     Loop
 
