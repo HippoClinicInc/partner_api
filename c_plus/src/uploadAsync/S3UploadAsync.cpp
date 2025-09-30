@@ -321,18 +321,23 @@ extern "C" S3UPLOAD_API int __stdcall GetAsyncUploadStatusBytes(
         bool anyUploading = false;
         std::string errorMessage = "";
         long long totalSize = 0;
+        int uploadedCount = 0;
+        long long uploadedSize = 0;
+        
         for (auto& progress : allUploads) {
             totalSize += progress->totalSize;
             
-            if (progress->status == UPLOAD_FAILED) {
+            if (progress->status == UPLOAD_SUCCESS) {
+                uploadedCount++;
+                uploadedSize += progress->totalSize;
+            } else if (progress->status == UPLOAD_FAILED) {
                 anyFailed = true;
                 if (errorMessage.empty()) {
                     errorMessage = progress->errorMessage;
                 }
-            } else if (progress->status == UPLOAD_UPLOADING || progress->status == UPLOAD_PENDING) {
-                anyUploading = true;
                 allCompleted = false;
-            } else if (progress->status != UPLOAD_SUCCESS) {
+            } else if (progress->status == UPLOAD_UPLOADING || progress->status == UPLOAD_PENDING || progress->status == UPLOAD_CANCELLED) {
+                anyUploading = true;
                 allCompleted = false;
             }
         }
@@ -354,9 +359,11 @@ extern "C" S3UPLOAD_API int __stdcall GetAsyncUploadStatusBytes(
         oss << "{"
             << "\"code\":" << UPLOAD_SUCCESS << ","
             << "\"status\":" << overallStatus << ","
+            << "\"uploadedCount\":" << uploadedCount << ","
+            << "\"uploadedSize\":" << uploadedSize << ","
             << "\"totalSize\":" << totalSize << ","
+            << "\"totalUploadCount\":" << totalUploadCount << ","
             << "\"errorMessage\":\"" << errorMessage << "\","
-            << "\"totalUploads\":" << totalUploadCount << ","
             << "\"dataId\":\"" << dataId << "\","
             << "\"uploads\":[";
 

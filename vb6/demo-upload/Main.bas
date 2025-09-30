@@ -309,7 +309,7 @@ Private Function MonitorUploadStatus(ByVal dataId As String, ByVal maxWaitTime A
     
     Do While waitTime < maxWaitTime
         ' Use byte array method for safer data transfer
-        Dim buffer(0 To 1048575) As Byte ' 1MB buffer should be enough for status JSON
+        Dim buffer(0 To 2097151) As Byte ' 2MB buffer should be enough for status JSON
         Dim bytesReceived As Long
 
         Debug.Print "Checking status for dataId: " & dataId & " (attempt " & (waitTime + 1) & ")"
@@ -362,9 +362,12 @@ ParseResponse:
             Exit Do
         End If
 
-        ' Wait 1 second before checking again
-        DoEvents
-        Sleep 1000
+        ' Wait 10 seconds (10 x 1 second) before checking again
+        Dim i As Integer
+        For i = 1 To 10
+            DoEvents
+            Sleep 1000
+        Next i
         waitTime = waitTime + 1
     Loop
 
