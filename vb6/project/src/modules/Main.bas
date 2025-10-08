@@ -166,115 +166,6 @@ Sub Main()
     Exit Sub
 End Sub
 
-
-
-' Monitor upload status for a single dataId
-Private Function MonitorUploadStatus(ByVal dataId As String, ByVal maxWaitTime As Long) As Boolean
-    Dim statusResponse As String
-    Dim statusObj As Object
-    Dim isCompleted As Boolean
-    Dim isError As Boolean
-    Dim waitTime As Long
-    Dim statusCode As Long
-    Dim uploadStatus As Long
-    
-    waitTime = 0
-    
-    Do While waitTime < maxWaitTime
-        ' Use byte array method for safer data transfer
-        Dim buffer(0 To 2097151) As Byte ' 2MB buffer should be enough for status JSON
-        Dim bytesReceived As Long
-
-        Debug.Print "Query status for dataId: " & dataId & " (attempt " & (waitTime + 1) & ")"
-
-        ' Try byte array method first
-        On Error GoTo ErrorHandler
-        bytesReceived = GetAsyncUploadStatusBytes(dataId, buffer(0), UBound(buffer) + 1)
-        On Error GoTo ErrorHandler
-
-        If bytesReceived > 0 Then
-            ' Convert byte array to string manually (safer method)
-            statusResponse = ""
-            Dim i As Long
-            For i = 0 To bytesReceived - 1
-                statusResponse = statusResponse & Chr(buffer(i))
-            Next i
-
-            Debug.Print "Status response: " & statusResponse
-            Debug.Print
-        Else
-            Debug.Print "No data received from GetAsyncUploadStatusBytes"
-            GoTo ErrorHandler
-        End If
-
-        GoTo ParseResponse
-
-ParseResponse:
-        ' Parse JSON response
-        On Error GoTo JsonParseError
-        Set statusObj = JsonConverter.ParseJson(statusResponse)
-        On Error GoTo ErrorHandler
-
-        statusCode = statusObj("code")
-
-        If statusCode = 2 Then
-            ' Parse the status from the message field (which contains JSON string)
-            uploadStatus = statusObj("status")
-
-            If uploadStatus = 2 Then ' SIMPLE_UPLOAD_SUCCESS
-                isCompleted = True
-                Exit Do
-            ElseIf uploadStatus = 3 Then ' SIMPLE_UPLOAD_FAILED
-                isError = True
-                Debug.Print "ERROR: Upload failed - " & statusObj("errorMessage")
-                Exit Do
-            End If
-        Else
-            ' Status check failed
-            isError = True
-            Debug.Print "ERROR: Failed to get upload status - " & statusObj("errorMessage")
-            Exit Do
-        End If
-
-        ' Wait 10 seconds (10 x 1 second) before checking again
-        Dim j As Integer
-        For j = 1 To 10
-            DoEvents
-            Sleep 1000
-        Next j
-        waitTime = waitTime + 1
-    Loop
-
-    GoTo ContinueAfterLoop
-
-JsonParseError:
-    Debug.Print "ERROR: Failed to parse JSON response: " & statusResponse
-    Debug.Print "JSON Parse Error: " & Err.Description
-    isError = True
-    On Error GoTo ErrorHandler
-
-ContinueAfterLoop:
-    
-    ' Check final result
-    If isCompleted Then
-        Debug.Print
-        Debug.Print "SUCCESS: Upload completed for dataId: " & dataId
-        MonitorUploadStatus = True
-    ElseIf isError Then
-        MonitorUploadStatus = False
-    Else
-        Debug.Print "ERROR: Upload timeout after " & maxWaitTime & " seconds for dataId: " & dataId
-        MonitorUploadStatus = False
-    End If
-    
-    Exit Function
-    
-ErrorHandler:
-    ' Handle errors
-    Debug.Print "ERROR: Upload monitoring failed - " & Err.Description
-    MonitorUploadStatus = False
-End Function
-
 ' Monitor multiple upload statuses (for folder uploads)
 ' For folder uploads, we use the same dataId for all files
 Private Function MonitorMultipleUploadStatus(ByVal dataId As String, ByVal maxWaitTime As Long) As Boolean
@@ -424,3 +315,109 @@ ErrorHandler:
     UploadSingleFile = False
 End Function
 
+' Monitor upload status for a single dataId
+Private Function MonitorUploadStatus(ByVal dataId As String, ByVal maxWaitTime As Long) As Boolean
+    Dim statusResponse As String
+    Dim statusObj As Object
+    Dim isCompleted As Boolean
+    Dim isError As Boolean
+    Dim waitTime As Long
+    Dim statusCode As Long
+    Dim uploadStatus As Long
+
+    waitTime = 0
+
+    Do While waitTime < maxWaitTime
+        ' Use byte array method for safer data transfer
+        Dim buffer(0 To 2097151) As Byte ' 2MB buffer should be enough for status JSON
+        Dim bytesReceived As Long
+
+        Debug.Print "Query status for dataId: " & dataId & " (attempt " & (waitTime + 1) & ")"
+
+        ' Try byte array method first
+        On Error GoTo ErrorHandler
+        bytesReceived = GetAsyncUploadStatusBytes(dataId, buffer(0), UBound(buffer) + 1)
+        On Error GoTo ErrorHandler
+
+        If bytesReceived > 0 Then
+            ' Convert byte array to string manually (safer method)
+            statusResponse = ""
+            Dim i As Long
+            For i = 0 To bytesReceived - 1
+                statusResponse = statusResponse & Chr(buffer(i))
+            Next i
+
+            Debug.Print "Status response: " & statusResponse
+            Debug.Print
+        Else
+            Debug.Print "No data received from GetAsyncUploadStatusBytes"
+            GoTo ErrorHandler
+        End If
+
+        GoTo ParseResponse
+
+ParseResponse:
+        ' Parse JSON response
+        On Error GoTo JsonParseError
+        Set statusObj = JsonConverter.ParseJson(statusResponse)
+        On Error GoTo ErrorHandler
+
+        statusCode = statusObj("code")
+
+        If statusCode = 2 Then
+            ' Parse the status from the message field (which contains JSON string)
+            uploadStatus = statusObj("status")
+
+            If uploadStatus = 2 Then ' SIMPLE_UPLOAD_SUCCESS
+                isCompleted = True
+                Exit Do
+            ElseIf uploadStatus = 3 Then ' SIMPLE_UPLOAD_FAILED
+                isError = True
+                Debug.Print "ERROR: Upload failed - " & statusObj("errorMessage")
+                Exit Do
+            End If
+        Else
+            ' Status check failed
+            isError = True
+            Debug.Print "ERROR: Failed to get upload status - " & statusObj("errorMessage")
+            Exit Do
+        End If
+
+        ' Wait 10 seconds (10 x 1 second) before checking again
+        Dim j As Integer
+        For j = 1 To 10
+            DoEvents
+            Sleep 1000
+        Next j
+        waitTime = waitTime + 1
+    Loop
+
+    GoTo ContinueAfterLoop
+
+JsonParseError:
+    Debug.Print "ERROR: Failed to parse JSON response: " & statusResponse
+    Debug.Print "JSON Parse Error: " & Err.Description
+    isError = True
+    On Error GoTo ErrorHandler
+
+ContinueAfterLoop:
+
+    ' Check final result
+    If isCompleted Then
+        Debug.Print
+        Debug.Print "SUCCESS: Upload completed for dataId: " & dataId
+        MonitorUploadStatus = True
+    ElseIf isError Then
+        MonitorUploadStatus = False
+    Else
+        Debug.Print "ERROR: Upload timeout after " & maxWaitTime & " seconds for dataId: " & dataId
+        MonitorUploadStatus = False
+    End If
+
+    Exit Function
+
+ErrorHandler:
+    ' Handle errors
+    Debug.Print "ERROR: Upload monitoring failed - " & Err.Description
+    MonitorUploadStatus = False
+End Function
