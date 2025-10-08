@@ -1,3 +1,4 @@
+Attribute VB_Name = "Module1"
 Option Explicit
 
 ' Required references:
@@ -18,7 +19,7 @@ Private Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 ' S3 configuration constants
 ' For prod running, do not change it here. In our current prod settings,
 ' the prod bucket is called "hippoclinic-staging". We will change it later.
-Private Const S3_BUCKET As String = "hippoclinic-staging"
+Private Const S3_BUCKET As String = "hippoclinic"
 Private Const S3_REGION As String = "us-west-1"
 
 ' Main function to handle file upload workflow with HippoClinic API
@@ -41,12 +42,6 @@ Sub Main()
     If Not SetDllSearchPath() Then
         Debug.Print "ERROR: Failed to set DLL search path"
         MsgBox "ERROR: Failed to set DLL search path. Please check if lib directory exists and contains S3UploadLib.dll.", vbCritical, "DLL Path Error"
-        Exit Sub
-    End If
-    
-    If Not ValidateDlls() Then
-        Debug.Print "ERROR: Failed to validate required DLL files"
-        MsgBox "ERROR: Failed to validate required DLL files. Please check if S3UploadLib.dll is in the lib directory.", vbCritical, "DLL Validation Error"
         Exit Sub
     End If
     
@@ -167,9 +162,6 @@ Sub Main()
     ' Note: CleanupAwsSDK is called automatically when DLL is unloaded
     ' Do not call it here as async uploads may still be running
     CleanupAwsSDK
-    
-    ' 10. Cleanup DLL resources
-    CleanupDlls
     
     Exit Sub
 End Sub
@@ -330,7 +322,7 @@ Private Function UploadFolderContents(ByVal folderPath As String, ByVal s3Creden
     
     ' 5. Loop through all files in the folder
     For Each file In folder.Files
-        currentFile = file.Path
+        currentFile = file.path
         
         ' 6. Get file size before upload
         currentFileSize = GetLocalFileSize(currentFile)

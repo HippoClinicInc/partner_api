@@ -1,3 +1,4 @@
+Attribute VB_Name = "S3UploadLib"
 ' VB6 Declaration File - S3UploadLib.bas
 ' Usage: Add this module to your VB6 project
 
