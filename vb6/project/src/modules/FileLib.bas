@@ -1,3 +1,4 @@
+Attribute VB_Name = "FileLib"
 Option Explicit
 
 ' FileLib.bas - System file operations used in demo.bas

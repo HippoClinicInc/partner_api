@@ -1,9 +1,13 @@
+Attribute VB_Name = "S3UploadLib"
 ' VB6 Declaration File - S3UploadLib.bas
 ' Usage: Add this module to your VB6 project
 
 Option Explicit
 
-' API Declarations - Note: DLL file must be in the same directory as the program or in system PATH
+' API Declarations - DLL files are located in the lib directory
+' Note: VB6 will look for DLLs in the application directory and system PATH
+' For this project structure, we need to ensure the lib directory is accessible
+
 ' Return type: JSON string
 ' The code is corresponds to the error code constants above
 ' { "code": 0, "message": "success" }

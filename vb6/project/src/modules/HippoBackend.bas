@@ -1,3 +1,4 @@
+Attribute VB_Name = "HippoBackend"
 Option Explicit
 
 ' HippoBackend.bas - HippoClinic backend API functions

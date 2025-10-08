@@ -38,6 +38,13 @@ Sub Main()
     Dim sdkInitResult As String
     Dim s3FileKey As String
     
+    ' 0. Set DLL search path and validate DLL files
+    If Not SetDllSearchPath() Then
+        Debug.Print "ERROR: Failed to set DLL search path"
+        MsgBox "ERROR: Failed to set DLL search path. Please check if lib directory exists and contains S3UploadLib.dll.", vbCritical, "DLL Path Error"
+        Exit Sub
+    End If
+    
     ' 1. Get file path from user input and validate existence
     uploadFilePath = InputBox("Please enter the file path to upload:", "File Upload", "")
     uploadFilePath = Trim(uploadFilePath)
@@ -155,6 +162,7 @@ Sub Main()
     ' Note: CleanupAwsSDK is called automatically when DLL is unloaded
     ' Do not call it here as async uploads may still be running
     CleanupAwsSDK
+    
     Exit Sub
 End Sub
 
@@ -267,11 +275,11 @@ Private Function UploadSingleFile(ByVal filePath As String, ByVal s3Credentials 
     sessionToken = credentialsObj("sessionToken")
 
     ' 4. Start asynchronous upload to S3
-
     Debug.Print "Submit to queue - " & filePath
     Dim startResponse As String
     startResponse = UploadFileAsync(accessKey, secretKey, sessionToken, S3_REGION, S3_BUCKET, s3FileKey, filePath, dataId)
     Debug.Print startResponse
+    
     ' 5. Parse start response and check if upload started successfully
     Dim startObj As Object
     Set startObj = JsonConverter.ParseJson(startResponse)
@@ -308,9 +316,9 @@ Private Function MonitorUploadStatus(ByVal dataId As String, ByVal maxWaitTime A
     Dim waitTime As Long
     Dim statusCode As Long
     Dim uploadStatus As Long
-    
+
     waitTime = 0
-    
+
     Do While waitTime < maxWaitTime
         ' Use byte array method for safer data transfer
         Dim buffer(0 To 2097151) As Byte ' 2MB buffer should be enough for status JSON
@@ -385,7 +393,7 @@ JsonParseError:
     On Error GoTo ErrorHandler
 
 ContinueAfterLoop:
-    
+
     ' Check final result
     If isCompleted Then
         Debug.Print
@@ -397,9 +405,9 @@ ContinueAfterLoop:
         Debug.Print "ERROR: Upload timeout after " & maxWaitTime & " seconds for dataId: " & dataId
         MonitorUploadStatus = False
     End If
-    
+
     Exit Function
-    
+
 ErrorHandler:
     ' Handle errors
     Debug.Print "ERROR: Upload monitoring failed - " & Err.Description
@@ -413,4 +421,3 @@ Private Function MonitorMultipleUploadStatus(ByVal dataId As String, ByVal maxWa
     ' The C++ side will find the upload with the matching dataId prefix
     MonitorMultipleUploadStatus = MonitorUploadStatus(dataId, maxWaitTime)
 End Function
-

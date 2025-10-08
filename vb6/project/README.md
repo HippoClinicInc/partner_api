@@ -1,17 +1,36 @@
-# HippoClinic Data Integration Demo - Upload Module
+# HippoClinic File Upload VB6 Project
 
-This folder contains a VB6-based file upload system that integrates with the HippoClinic API and AWS S3 for medical data uploads. The system supports both single file and batch folder uploads with comprehensive error handling and logging.
+## Project Structure
 
-## 📁 Folder Contents
+```
+project/
+├── src/                    # Source code directory
+│   └── modules/           # Module files
+│       ├── Main.bas      # Main program logic
+│       ├── JsonConverter.bas  # JSON processing
+│       ├── S3UploadLib.bas    # S3 upload library declarations
+│       ├── HippoBackend.bas   # Backend API calls
+│       ├── FileLib.bas        # File operation utilities
+│       └── DllPathManager.bas # DLL path management
+├── lib/                   # Library files directory
+│   ├── *.dll             # AWS SDK DLL files
+│   └── S3UploadLib.dll   # Custom S3 upload library
+├── Project1.vbp         # VB6 project file
+└── README.md            # Project documentation
+```
+
+## 📁 Module Description
 
 ### Core VB6 Modules
 
 #### `Main.bas`
 **Main application module** - Contains the complete file upload workflow:
 - **Main()** - Primary workflow function with 11-step process
+- **StartUpload()** - GUI-based upload function with progress display
 
 **Key Functions:**
 - `Main()` - Primary workflow entry point
+- `StartUpload()` - GUI-based upload with progress tracking
 - `UploadSingleFile()` - Upload individual files to S3
 - `UploadFolderContents()` - Batch upload entire folders
 
@@ -58,6 +77,13 @@ This folder contains a VB6-based file upload system that integrates with the Hip
 - **JSON Generation** - Convert VBA objects to JSON strings
 - **Error Handling** - Robust JSON parsing error management
 - **Cross-Platform** - Support for both Windows and Mac VBA
+
+#### `DllPathManager.bas`
+**DLL Path Management Module** - Handles DLL loading and path resolution:
+- **Dynamic DLL Path Resolution** - Automatic project root directory detection
+- **DLL Loading Management** - Use SetDllDirectory API to set search path
+- **Path Validation** - Validate DLL file existence
+- **Error Handling** - Provide detailed error information
 
 ### AWS SDK Libraries
 
@@ -121,21 +147,30 @@ You can find the installer in the `cpp_runtime` folder. click the `install_all.b
    - Start Visual Basic 6.0 from the Start Menu.
    - If prompted, allow any additional setup or registration steps.
 
-
 ### Setup Instructions
 
-1. **Open demo.bas with Visual Basic 6.0**
+1. **Open Project with Visual Basic 6.0**
    ```
-   Open Main.bas with Visual Basic 6.0
+   Open Project1.vbp with Visual Basic 6.0
    ```
 
-2. **Add Required Modules and References**
+2. **Verify All Modules Are Loaded**
+   Check that the following modules appear in the Project Explorer:
    ```
-   Project → Add File → Add the following .bas files:
+   Project Explorer should show:
+   - Main.bas
    - HippoBackend.bas
    - FileLib.bas
    - S3UploadLib.bas  
    - JsonConverter.bas
+   - DllPathManager.bas
+   ```
+
+   **If modules are missing:**
+   ```
+   Project → Add File → Module → Existing
+   Browse to src/modules/ directory
+   Add each missing .bas file individually
    ```
 
 3. **Add Required References**
@@ -145,10 +180,10 @@ You can find the installer in the `cpp_runtime` folder. click the `install_all.b
    - Microsoft Scripting Runtime
    ```
 
-4. **Copy DLL Files**
+4. **Verify DLL Files Location**
    ```
-   Copy all .dll files to:
-   - Project directory, OR
+   Ensure all .dll files are in:
+   - lib/ directory (recommended), OR
    - System PATH directory
    ```
 
@@ -241,9 +276,9 @@ S3UploadLib provides standardized error codes:
 ### Common Issues
 
 1. **DLL Not Found**
-   - Ensure all .dll files are in the same directory as the .bas files
+   - Ensure all .dll files are in the lib/ directory
    - Ensure C++ runtimes are installed
-   - Do not create a new project in VB6, open Main.bas directly
+   - Do not create a new project in VB6, open Project1.vbp directly
    - Check Windows PATH environment variable as fallback
 
    **How to Add DLL Directory to Windows PATH(Not required if you meet the first three conditions above)**
@@ -299,11 +334,99 @@ S3UploadLib provides standardized error codes:
    - Verify JsonConverter.bas is properly added
    - Check API response format
 
+5. **Interface Freezing**
+   - The application now includes DoEvents calls to prevent UI freezing
+   - Use the Cancel button to stop long-running operations
+   - Monitor progress in the output window
+
 ### Debug Steps
 1. Enable VB6 Immediate Window (View → Immediate Window)
 2. Run application and monitor debug output
 3. Check error codes and messages
 4. Verify file paths and permissions
+
+## DLL Path Management
+
+The project uses the `DllPathManager.bas` module to manage DLL file path issues:
+
+### Problem Solution
+- **Problem**: VB6 may not be able to correctly find DLL files in subdirectory structures
+- **Solution**: Use Windows API to set DLL search path
+- **Features**: 
+  - Automatic project root directory detection
+  - Use SetDllDirectory API to set search path
+  - Validate DLL file existence
+  - Provide detailed error information
+  - DLL files remain in lib directory, no copying required
+
+### DLL File Management
+1. **DLL File Location**: All DLL files are stored in the `lib/` directory
+2. **Search Path Setting**: Automatically set DLL search path when program starts
+3. **No Copying Required**: DLL files remain in lib directory, maintaining clean project structure
+
+```
+lib/                    # DLL file directory (only location)
+├── S3UploadLib.dll      # Custom S3 upload library
+├── aws-c-*.dll         # AWS C SDK library
+├── aws-cpp-sdk-*.dll   # AWS C++ SDK library
+└── zlib1.dll           # Compression library
+```
+
+### Usage Instructions
+1. Ensure all DLL files are in the `lib/` directory
+2. Open and run the project in VB6
+3. The program will automatically set DLL search path and validate file existence
+
+## Cross-Computer Project Loading Issues
+
+### Problem Description
+When opening the project on a different computer, you may encounter the following issues:
+
+1. **Missing Modules**: VB6 may only show 3 modules instead of all 6 modules
+2. **Path Errors**: "The file could not be loaded" errors
+3. **Invalid Key Errors**: "contains invalid key" errors in project file
+
+### Root Causes
+- **Path Differences**: Project file uses relative paths that may not match the new computer's directory structure
+- **File Missing**: Some `.bas` files may not have been copied to the new computer
+- **VB6 Cache**: VB6 may have cached incorrect path information
+
+### Solutions
+
+#### Method 1: Verify File Structure
+Ensure the following directory structure exists on the new computer:
+```
+src/
+└── modules/
+    ├── Main.bas
+    ├── JsonConverter.bas
+    ├── S3UploadLib.bas
+    ├── HippoBackend.bas
+    ├── FileLib.bas
+    └── DllPathManager.bas
+```
+
+#### Method 2: Manual Module Addition
+If files exist but VB6 doesn't load them:
+1. Open VB6 and load the project
+2. Right-click project → `Add` → `Module`
+3. Select `Existing` tab
+4. Browse to `src\modules\` directory
+5. Add each missing `.bas` file individually
+
+#### Method 3: Clean Project Loading
+1. Close VB6 completely
+2. Delete the `.vbw` file (VB6 workspace file)
+3. Reopen VB6 and load `Project1.vbp`
+4. VB6 will recreate the workspace file with correct paths
+
+#### Method 4: Use Alternative Project File
+If problems persist, use the `Project1_fixed.vbp` file which has been verified to work correctly.
+
+### Prevention Tips
+1. **Complete File Copy**: Always copy the entire project directory including all subdirectories
+2. **Path Consistency**: Maintain the same directory structure on different computers
+3. **Version Control**: Use version control systems to ensure file integrity across different environments
 
 ## 📝 API Endpoints
 
@@ -329,9 +452,14 @@ For technical support or questions:
 3. Verify configuration settings
 4. Contact development team with specific error details
 
----
+## Important Notes
 
-**Version:** 1.0  
-**Last Updated:** December 2024  
-**Compatibility:** VB6, Windows 7+  
-**Dependencies:** AWS SDK, WinHTTP, Scripting Runtime
+1. **DLL Files**: Ensure all DLL files are in lib directory and accessible
+2. **API Configuration**: Modify API configuration information to match your environment
+3. **Upload Support**: Project supports single file and folder uploads
+4. **Error Handling**: Upload process includes progress monitoring and error handling
+5. **Path Issues**: If encountering DLL loading problems, check if lib directory exists and contains all required DLL files
+6. **Cross-Computer Issues**: Follow the troubleshooting guide above when opening project on different computers
+7. **UI Responsiveness**: The application now includes proper DoEvents calls to prevent interface freezing
+8. **Cancel Functionality**: Users can cancel long-running upload operations using the Cancel button
+
