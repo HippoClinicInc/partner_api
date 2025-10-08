@@ -166,14 +166,6 @@ Sub Main()
     Exit Sub
 End Sub
 
-' Monitor multiple upload statuses (for folder uploads)
-' For folder uploads, we use the same dataId for all files
-Private Function MonitorMultipleUploadStatus(ByVal dataId As String, ByVal maxWaitTime As Long) As Boolean
-    ' For folder uploads, we monitor using the same dataId
-    ' The C++ side will find the upload with the matching dataId prefix
-    MonitorMultipleUploadStatus = MonitorUploadStatus(dataId, maxWaitTime)
-End Function
-
 ' Upload all files in a folder to S3 and confirm with API
 Private Function UploadFolderContents(ByVal folderPath As String, ByVal s3Credentials As String, ByRef totalFileSize As Long, ByVal s3FileKey As String, ByVal dataId As String, ByRef uploadIds As String) As Boolean
     Dim fso As Object
@@ -420,4 +412,12 @@ ErrorHandler:
     ' Handle errors
     Debug.Print "ERROR: Upload monitoring failed - " & Err.Description
     MonitorUploadStatus = False
+End Function
+
+' Monitor multiple upload statuses (for folder uploads)
+' For folder uploads, we use the same dataId for all files
+Private Function MonitorMultipleUploadStatus(ByVal dataId As String, ByVal maxWaitTime As Long) As Boolean
+    ' For folder uploads, we monitor using the same dataId
+    ' The C++ side will find the upload with the matching dataId prefix
+    MonitorMultipleUploadStatus = MonitorUploadStatus(dataId, maxWaitTime)
 End Function
